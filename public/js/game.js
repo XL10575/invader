@@ -112,7 +112,9 @@ const Game = {
                 }
                 
                 // Use special ability with Shift
-                if (e.key === 'Shift' && this.player.character && this.player.character.specialAbility) {
+                if ((e.key === 'Shift' || e.key === 'ShiftLeft' || e.key === 'ShiftRight') && 
+                    this.player && this.player.character && this.player.character.specialAbility) {
+                    console.log("Shift key pressed, attempting to use special ability");
                     this.useSpecialAbility();
                 }
             }
@@ -300,6 +302,13 @@ const Game = {
             damage: 1
         };
         
+        // Debug the character's special ability
+        if (character.specialAbility) {
+            console.log("Character has special ability:", character.specialAbility.name);
+        } else {
+            console.log("Character missing special ability!");
+        }
+        
         this.player = {
             x: this.width / 2 - 25,
             y: this.height - 60,
@@ -318,10 +327,7 @@ const Game = {
                 cooldown: false,
                 lastUsed: 0,
                 duration: 0,
-                cooldownTime: character.specialAbility ? character.specialAbility.cooldown * 1000 : 10000,
-                use: function() {
-                    // Will be implemented when we add special ability functionality
-                }
+                cooldownTime: character.specialAbility ? character.specialAbility.cooldown * 1000 : 10000
             },
             // Store the image for the player
             image: new Image()
@@ -904,9 +910,22 @@ const Game = {
 
     // Use special ability
     useSpecialAbility: function() {
+        // Log current state for debugging
+        console.log("Ability status:", {
+            active: this.player.specialAbility.active,
+            cooldown: this.player.specialAbility.cooldown,
+            lastUsed: this.player.specialAbility.lastUsed
+        });
+        
         if (!this.player.specialAbility || 
             this.player.specialAbility.active || 
             this.player.specialAbility.cooldown) {
+            console.log("Cannot use ability - either already active or on cooldown");
+            return;
+        }
+        
+        if (!this.player.character || !this.player.character.specialAbility) {
+            console.log("Cannot use ability - character or special ability is missing");
             return;
         }
         
@@ -915,179 +934,189 @@ const Game = {
         
         console.log("Using special ability:", ability.name);
         
+        // Add a visual effect to show ability activation
+        this.createExplosion(this.player.x + this.player.width/2, this.player.y, 5);
+        
+        // Normalize ability name to handle case sensitivity
+        const abilityName = ability.name.toLowerCase();
+        
         // Implement special ability based on character
-        switch (ability.name) {
-            case "Shark Dash":
-            case "Dodge Master":
-                // Double speed for 3 seconds
-                const originalSpeed = this.player.speed;
-                this.player.speed *= 2;
-                this.player.specialAbility.active = true;
-                this.player.specialAbility.duration = 3000;
-                
-                // Create visual effect
-                this.createExplosion(this.player.x + this.player.width/2, this.player.y, 15);
-                
-                setTimeout(() => {
-                    this.player.speed = originalSpeed;
-                    this.player.specialAbility.active = false;
-                }, 3000);
-                break;
-                
-            case "Dingle Blast":
-                // Fire a powerful shot that destroys enemies in a line
-                const blast = {
-                    x: this.player.x + this.player.width / 2 - 5,
-                    y: this.player.y,
-                    width: 10,
-                    height: 20,
-                    speed: 15,
-                    damage: 10,
-                    isBlast: true
-                };
-                this.bullets.push(blast);
-                this.player.specialAbility.active = true;
-                
-                // Reset after a short duration
-                setTimeout(() => {
-                    this.player.specialAbility.active = false;
-                }, 1000);
-                break;
-                
-            case "Carpet Bombing":
-                // Drop multiple bombs that destroy all enemies below you
-                this.player.specialAbility.active = true;
-                
-                // Create multiple blasts
-                for (let i = 0; i < 7; i++) {
-                    setTimeout(() => {
-                        const bombX = this.player.x + (i % 3 - 1) * this.player.width;
-                        const bomb = {
-                            x: bombX,
-                            y: this.player.y,
-                            width: 8,
-                            height: 15,
-                            speed: 12,
-                            damage: 5,
-                            isBlast: true
-                        };
-                        this.bullets.push(bomb);
-                    }, i * 150);
-                }
-                
-                // Reset after all bombs are dropped
-                setTimeout(() => {
-                    this.player.specialAbility.active = false;
-                }, 1500);
-                break;
-                
-            case "Tank Shield":
-                // Temporary invincibility
-                this.player.specialAbility.active = true;
-                this.player.specialAbility.duration = 5000;
-                
-                // Create shield effect
-                const shieldInterval = setInterval(() => {
-                    if (this.player.specialAbility.active) {
-                        this.createExplosion(
-                            this.player.x + this.player.width/2, 
-                            this.player.y + this.player.height/2, 
-                            3
-                        );
-                    } else {
-                        clearInterval(shieldInterval);
-                    }
-                }, 200);
-                
-                setTimeout(() => {
-                    this.player.specialAbility.active = false;
-                }, 5000);
-                break;
-                
-            case "Ghost Bullets":
-                // Next shots pass through walls and enemies
-                this.player.specialAbility.active = true;
-                this.player.specialAbility.duration = 10000;
-                
-                // Create ghost effect
-                const ghostInterval = setInterval(() => {
-                    if (this.player.specialAbility.active) {
-                        this.createGhostEffect();
-                    } else {
-                        clearInterval(ghostInterval);
-                    }
-                }, 300);
-                
-                setTimeout(() => {
-                    this.player.specialAbility.active = false;
-                }, 10000);
-                break;
-                
-            case "Bat Swing":
-                // Reflect enemy bullets for a short time
-                this.player.specialAbility.active = true;
-                this.player.specialAbility.duration = 3000;
-                
-                // Reflect all enemy bullets
-                const reflectInterval = setInterval(() => {
-                    if (this.player.specialAbility.active) {
-                        // Reflect any enemy bullets near the player
-                        for (let i = 0; i < this.enemyBullets.length; i++) {
-                            const bullet = this.enemyBullets[i];
-                            
-                            // Check if bullet is within reflection range
-                            if (Math.abs(bullet.y - this.player.y) < 50 &&
-                                Math.abs(bullet.x - this.player.x) < this.player.width * 2) {
-                                
-                                // Remove enemy bullet
-                                this.enemyBullets.splice(i, 1);
-                                i--;
-                                
-                                // Create a reflected bullet
-                                const reflected = {
-                                    x: bullet.x,
-                                    y: bullet.y,
-                                    width: bullet.width,
-                                    height: bullet.height,
-                                    speed: bullet.speed + 2,
-                                    damage: 2
-                                };
-                                
-                                this.bullets.push(reflected);
-                                this.createExplosion(bullet.x, bullet.y, 2);
-                            }
-                        }
-                    } else {
-                        clearInterval(reflectInterval);
-                    }
-                }, 100);
-                
-                setTimeout(() => {
-                    this.player.specialAbility.active = false;
-                }, 3000);
-                break;
+        if (abilityName.includes("dash") || abilityName.includes("dodge")) {
+            // Double speed for 3 seconds
+            const originalSpeed = this.player.speed;
+            this.player.speed *= 2;
+            this.player.specialAbility.active = true;
+            this.player.specialAbility.duration = 3000;
             
-            default:
-                // Generic boost
-                const originalDamage = this.player.damage;
-                this.player.speed += 2;
-                this.player.damage += 1;
-                this.player.specialAbility.active = true;
-                this.player.specialAbility.duration = 3000;
+            // Create visual effect
+            this.createExplosion(this.player.x + this.player.width/2, this.player.y, 15);
+            
+            setTimeout(() => {
+                this.player.speed = originalSpeed;
+                this.player.specialAbility.active = false;
+            }, 3000);
+        }
+        else if (abilityName.includes("blast") || abilityName.includes("dingle")) {
+            // Fire a powerful shot that destroys enemies in a line
+            const blast = {
+                x: this.player.x + this.player.width / 2 - 5,
+                y: this.player.y,
+                width: 10,
+                height: 20,
+                speed: 15,
+                damage: 10,
+                isBlast: true
+            };
+            this.bullets.push(blast);
+            this.player.specialAbility.active = true;
+            
+            // Reset after a short duration
+            setTimeout(() => {
+                this.player.specialAbility.active = false;
+            }, 1000);
+        }
+        else if (abilityName.includes("bomb") || abilityName.includes("carpet")) {
+            // Drop multiple bombs that destroy all enemies below you
+            this.player.specialAbility.active = true;
+            
+            // Create multiple blasts
+            for (let i = 0; i < 7; i++) {
                 setTimeout(() => {
-                    this.player.speed -= 2;
-                    this.player.damage = originalDamage;
-                    this.player.specialAbility.active = false;
-                }, 3000);
+                    const bombX = this.player.x + (i % 3 - 1) * this.player.width;
+                    const bomb = {
+                        x: bombX,
+                        y: this.player.y,
+                        width: 8,
+                        height: 15,
+                        speed: 12,
+                        damage: 5,
+                        isBlast: true
+                    };
+                    this.bullets.push(bomb);
+                }, i * 150);
+            }
+            
+            // Reset after all bombs are dropped
+            setTimeout(() => {
+                this.player.specialAbility.active = false;
+            }, 1500);
+        }
+        else if (abilityName.includes("shield") || abilityName.includes("tank")) {
+            // Temporary invincibility
+            this.player.specialAbility.active = true;
+            this.player.specialAbility.duration = 5000;
+            
+            // Create shield effect
+            const shieldInterval = setInterval(() => {
+                if (this.player.specialAbility.active) {
+                    this.createExplosion(
+                        this.player.x + this.player.width/2, 
+                        this.player.y + this.player.height/2, 
+                        3
+                    );
+                } else {
+                    clearInterval(shieldInterval);
+                }
+            }, 200);
+            
+            setTimeout(() => {
+                this.player.specialAbility.active = false;
+            }, 5000);
+        }
+        else if (abilityName.includes("ghost") || abilityName.includes("bullet")) {
+            // Next shots pass through walls and enemies
+            this.player.specialAbility.active = true;
+            this.player.specialAbility.duration = 10000;
+            
+            // Create ghost effect
+            const ghostInterval = setInterval(() => {
+                if (this.player.specialAbility.active) {
+                    this.createGhostEffect();
+                } else {
+                    clearInterval(ghostInterval);
+                }
+            }, 300);
+            
+            setTimeout(() => {
+                this.player.specialAbility.active = false;
+            }, 10000);
+        }
+        else if (abilityName.includes("bat") || abilityName.includes("swing")) {
+            // Reflect enemy bullets for a short time
+            this.player.specialAbility.active = true;
+            this.player.specialAbility.duration = 3000;
+            
+            // Reflect all enemy bullets
+            const reflectInterval = setInterval(() => {
+                if (this.player.specialAbility.active) {
+                    // Reflect any enemy bullets near the player
+                    for (let i = 0; i < this.enemyBullets.length; i++) {
+                        const bullet = this.enemyBullets[i];
+                        
+                        // Check if bullet is within reflection range
+                        if (Math.abs(bullet.y - this.player.y) < 50 &&
+                            Math.abs(bullet.x - this.player.x) < this.player.width * 2) {
+                            
+                            // Remove enemy bullet
+                            this.enemyBullets.splice(i, 1);
+                            i--;
+                            
+                            // Create a reflected bullet
+                            const reflected = {
+                                x: bullet.x,
+                                y: bullet.y,
+                                width: bullet.width,
+                                height: bullet.height,
+                                speed: bullet.speed + 2,
+                                damage: 2
+                            };
+                            
+                            this.bullets.push(reflected);
+                            this.createExplosion(bullet.x, bullet.y, 2);
+                        }
+                    }
+                } else {
+                    clearInterval(reflectInterval);
+                }
+            }, 100);
+            
+            setTimeout(() => {
+                this.player.specialAbility.active = false;
+            }, 3000);
+        }
+        else {
+            // Generic boost for any other type of ability
+            console.log("Using generic ability boost for:", ability.name);
+            const originalDamage = this.player.damage;
+            this.player.speed += 2;
+            this.player.damage += 1;
+            this.player.specialAbility.active = true;
+            this.player.specialAbility.duration = 3000;
+            setTimeout(() => {
+                this.player.speed -= 2;
+                this.player.damage = originalDamage;
+                this.player.specialAbility.active = false;
+            }, 3000);
         }
         
         // Set cooldown
         this.player.specialAbility.cooldown = true;
         this.player.specialAbility.lastUsed = now;
         
+        // Visual feedback for ability use
+        if (this.characterDisplay) {
+            this.updateAbilityCooldown();
+        }
+        
         // Reset cooldown after time passes
         setTimeout(() => {
             this.player.specialAbility.cooldown = false;
+            console.log("Ability cooldown finished");
+            
+            // Update the UI
+            if (this.characterDisplay) {
+                this.updateAbilityCooldown();
+            }
         }, this.player.specialAbility.cooldownTime);
     },
     
