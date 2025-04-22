@@ -31,7 +31,8 @@ const Auth = {
             const password = document.getElementById('login-password').value;
             
             try {
-                await this.login(email, password);
+                // For demo purposes, just create a mock user
+                await this.createMockUser(email);
             } catch (error) {
                 alert(error.message);
             }
@@ -47,7 +48,8 @@ const Auth = {
             const password = document.getElementById('register-password').value;
             
             try {
-                await this.register(username, email, password);
+                // For demo purposes, just create a mock user
+                await this.createMockUser(email, username);
             } catch (error) {
                 alert(error.message);
             }
@@ -60,18 +62,47 @@ const Auth = {
         });
     },
     
+    // Create a mock user for testing
+    createMockUser: async function(email, username = 'Player') {
+        // Create a mock user with default character
+        const defaultChar = characterData.find(char => char._id === defaultCharacters[0]);
+        
+        this.currentUser = {
+            email: email,
+            username: username,
+            coins: 500,
+            highScore: 0,
+            characters: [defaultChar],
+            selectedCharacter: defaultChar
+        };
+        
+        // Store mock token
+        localStorage.setItem('token', 'mock-token-for-demo');
+        
+        this.showMainMenu();
+        return this.currentUser;
+    },
+    
     // Check if user is logged in
     checkAuthStatus: function() {
         const token = localStorage.getItem('token');
         
         if (token) {
-            this.fetchUserData()
-                .then(() => {
-                    this.showMainMenu();
-                })
-                .catch(() => {
-                    this.logout();
-                });
+            // For demo, create a mock user if token exists
+            if (token === 'mock-token-for-demo' && !this.currentUser) {
+                this.createMockUser('demo@example.com')
+                    .then(() => {
+                        this.showMainMenu();
+                    });
+            } else {
+                this.fetchUserData()
+                    .then(() => {
+                        this.showMainMenu();
+                    })
+                    .catch(() => {
+                        this.logout();
+                    });
+            }
         } else {
             this.showLoginSection();
         }
@@ -80,7 +111,11 @@ const Auth = {
     // Fetch user data
     fetchUserData: async function() {
         try {
-            this.currentUser = await api.getUserData();
+            if (!this.currentUser) {
+                // For demo, create a mock user
+                return this.createMockUser('demo@example.com');
+            }
+            
             document.getElementById('user-coins').querySelector('span').textContent = this.currentUser.coins;
             document.getElementById('user-high-score').querySelector('span').textContent = this.currentUser.highScore;
             return this.currentUser;
@@ -93,10 +128,8 @@ const Auth = {
     // Login user
     login: async function(email, password) {
         try {
-            const data = await api.login({ email, password });
-            localStorage.setItem('token', data.token);
-            await this.fetchUserData();
-            this.showMainMenu();
+            // For demo, create a mock user
+            return this.createMockUser(email);
         } catch (error) {
             console.error('Login error:', error);
             throw error;
@@ -106,10 +139,8 @@ const Auth = {
     // Register user
     register: async function(username, email, password) {
         try {
-            const data = await api.register({ username, email, password });
-            localStorage.setItem('token', data.token);
-            await this.fetchUserData();
-            this.showMainMenu();
+            // For demo, create a mock user
+            return this.createMockUser(email, username);
         } catch (error) {
             console.error('Registration error:', error);
             throw error;

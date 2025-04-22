@@ -58,10 +58,7 @@ const Characters = {
     // Load user's characters
     loadCharacters: async function() {
         try {
-            // Refresh user data to get latest characters
-            await Auth.fetchUserData();
-            
-            // Get all characters (to show info about characters user doesn't have yet)
+            // Get all characters
             const allCharacters = await api.getAllCharacters();
             
             // Map to store if user has each character
@@ -108,10 +105,14 @@ const Characters = {
                 card.classList.add('locked');
             }
             
+            // Create card content with character image
             card.innerHTML = `
-                <img src="${character.image}" alt="${character.name}">
+                <div class="character-img">
+                    <img src="${character.image}" alt="${character.name}">
+                </div>
                 <h3>${character.name}</h3>
                 <div class="rarity ${character.rarity}">${character.rarity.charAt(0).toUpperCase() + character.rarity.slice(1)}</div>
+                ${!character.owned ? '<div class="locked-label">LOCKED</div>' : ''}
             `;
             
             // Add event listener to view character details
@@ -151,9 +152,9 @@ const Characters = {
         if (character.specialAbility && character.specialAbility.name) {
             detailsSection.querySelector('.character-ability').innerHTML = `
                 <h4>Special Ability:</h4>
-                <div>${character.specialAbility.name}</div>
-                <div>${character.specialAbility.description}</div>
-                <div>Cooldown: ${character.specialAbility.cooldown}s</div>
+                <div class="ability-name">${character.specialAbility.name}</div>
+                <div class="ability-desc">${character.specialAbility.description}</div>
+                <div class="ability-cooldown">Cooldown: ${character.specialAbility.cooldown}s</div>
             `;
         } else {
             detailsSection.querySelector('.character-ability').innerHTML = '';
@@ -180,12 +181,16 @@ const Characters = {
     // Select character
     selectCharacter: async function(characterId) {
         try {
-            await api.selectCharacter(characterId);
+            const result = await api.selectCharacter(characterId);
             
-            // Update local user data
-            Auth.currentUser.selectedCharacter = this.characters.find(char => char._id === characterId);
-            
-            return true;
+            if (result.success) {
+                // Update selected character in game logic
+                Game.selectedCharacter = this.characters.find(char => char._id === characterId);
+                
+                return true;
+            } else {
+                throw new Error('Failed to select character');
+            }
         } catch (error) {
             console.error('Error selecting character:', error);
             throw error;

@@ -83,14 +83,24 @@ const Gacha = {
         document.getElementById('character-image').innerHTML = '<div class="loading">Pulling...</div>';
         document.getElementById('pull-result').classList.remove('hide');
         
-        // Perform gacha pull
-        const result = await api.gachaPull();
-        
-        // Update user's coins
-        Auth.updateCoins(result.remainingCoins);
-        
-        // Display the character
-        this.displayCharacter(result.character, result.newCharacter);
+        try {
+            // Perform gacha pull
+            const result = await api.gachaPull();
+            
+            // Update user's coins
+            Auth.updateCoins(result.remainingCoins);
+            
+            // Display the character
+            this.displayCharacter(result.character, result.newCharacter);
+        } catch (error) {
+            console.error('Error during gacha pull:', error);
+            // Show error in the results area instead of an alert
+            document.getElementById('character-image').innerHTML = '<div class="error">Error occurred</div>';
+            document.getElementById('character-name').textContent = 'Error during gacha pull';
+            document.getElementById('character-rarity').textContent = '';
+            document.getElementById('character-description').textContent = 'Please try again.';
+            document.getElementById('character-stats').innerHTML = '';
+        }
     },
     
     // Multi gacha pull (10+1)
@@ -102,14 +112,21 @@ const Gacha = {
         document.querySelector('.multi-result-container').innerHTML = '<div class="loading">Pulling...</div>';
         document.getElementById('multi-pull-result').classList.remove('hide');
         
-        // Perform multi gacha pull
-        const result = await api.multiPull();
-        
-        // Update user's coins
-        Auth.updateCoins(result.remainingCoins);
-        
-        // Display the characters
-        this.displayMultiPull(result.pulls);
+        try {
+            // Perform multi gacha pull
+            const result = await api.multiPull();
+            
+            // Update user's coins
+            Auth.updateCoins(result.remainingCoins);
+            
+            // Display the characters
+            this.displayMultiPull(result.pulls);
+        } catch (error) {
+            console.error('Error during multi gacha pull:', error);
+            // Show error in the results area
+            document.querySelector('.multi-result-container').innerHTML = 
+                '<div class="error">Error during multi gacha pull. Please try again.</div>';
+        }
     },
     
     // Display a character after gacha pull
@@ -143,6 +160,15 @@ const Gacha = {
             <div>Damage: ${character.stats.damage}</div>
         `;
         
+        // Add special ability information if available
+        if (character.specialAbility && character.specialAbility.name) {
+            characterStats.innerHTML += `
+                <h4>Special Ability:</h4>
+                <div class="ability">${character.specialAbility.name}</div>
+                <div class="ability-desc">${character.specialAbility.description}</div>
+            `;
+        }
+        
         // Add special notification for new character
         if (isNew) {
             characterName.innerHTML += ' <span class="new-label">NEW!</span>';
@@ -158,15 +184,21 @@ const Gacha = {
             const item = document.createElement('div');
             item.className = 'multi-result-item';
             
+            // Check if this is a new character for the user
+            const isNew = Auth.currentUser.characters.filter(c => c._id === character._id).length === 1;
+            
             item.innerHTML = `
-                <img src="${character.image}" alt="${character.name}">
+                <div class="character-img ${isNew ? 'new' : ''}">
+                    <img src="${character.image}" alt="${character.name}">
+                    ${isNew ? '<span class="new-badge">NEW!</span>' : ''}
+                </div>
                 <h4>${character.name}</h4>
                 <div class="rarity ${character.rarity}">${character.rarity.charAt(0).toUpperCase() + character.rarity.slice(1)}</div>
             `;
             
             // Event listener to show character details
             item.addEventListener('click', () => {
-                this.displayCharacter(character, false);
+                this.displayCharacter(character, isNew);
                 document.getElementById('pull-result').classList.remove('hide');
                 document.getElementById('multi-pull-result').classList.add('hide');
             });

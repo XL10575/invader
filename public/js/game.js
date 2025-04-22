@@ -103,6 +103,11 @@ const Game = {
                 if (e.key === ' ') {
                     this.fireBullet();
                 }
+                
+                // Use special ability with Shift
+                if (e.key === 'Shift' && this.player.character && this.player.character.specialAbility) {
+                    this.useSpecialAbility();
+                }
             }
             
             // Pause with Escape
@@ -279,8 +284,25 @@ const Game = {
             health: character.stats.health,
             moveLeft: false,
             moveRight: false,
-            character: character
+            character: character,
+            specialAbility: {
+                active: false,
+                cooldown: false,
+                lastUsed: 0,
+                duration: 0,
+                cooldownTime: character.specialAbility ? character.specialAbility.cooldown * 1000 : 10000,
+                use: function() {
+                    // Will be implemented when we add special ability functionality
+                }
+            },
+            // Store the image for the player
+            image: new Image()
         };
+        
+        // Set the player image
+        if (character.image) {
+            this.player.image.src = character.image;
+        }
         
         // Update lives based on character health
         this.lives = this.player.health;
@@ -683,17 +705,30 @@ const Game = {
     
     // Draw player
     drawPlayer: function() {
-        this.ctx.fillStyle = '#00ff00';
-        this.ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height);
+        if (this.player.image.complete && this.player.character && this.player.character.image) {
+            // Draw character image if available
+            this.ctx.drawImage(
+                this.player.image,
+                this.player.x,
+                this.player.y - 20, // Adjust position to make it look better
+                this.player.width,
+                this.player.height + 20 // Make the image slightly taller
+            );
+        } else {
+            // Fallback to default triangle ship
+            this.ctx.fillStyle = '#00ff00';
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.player.x + this.player.width / 2, this.player.y);
+            this.ctx.lineTo(this.player.x + this.player.width, this.player.y + this.player.height);
+            this.ctx.lineTo(this.player.x, this.player.y + this.player.height);
+            this.ctx.closePath();
+            this.ctx.fill();
+        }
         
-        // Draw player ship
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.player.x + this.player.width / 2, this.player.y);
-        this.ctx.lineTo(this.player.x + this.player.width, this.player.y + this.player.height);
-        this.ctx.lineTo(this.player.x, this.player.y + this.player.height);
-        this.ctx.closePath();
-        this.ctx.fillStyle = '#00ff00';
-        this.ctx.fill();
+        // Draw special ability indicator if available
+        if (this.player.character && this.player.character.specialAbility) {
+            // To be implemented in future
+        }
     },
     
     // Draw defensive walls
@@ -754,5 +789,83 @@ const Game = {
         }
         
         this.ctx.globalAlpha = 1;
+    },
+
+    // Use special ability
+    useSpecialAbility: function() {
+        if (!this.player.specialAbility || 
+            this.player.specialAbility.active || 
+            this.player.specialAbility.cooldown) {
+            return;
+        }
+        
+        const now = Date.now();
+        const ability = this.player.character.specialAbility;
+        
+        // Implement special ability based on character
+        switch (ability.name) {
+            case "Dodge Master":
+                // Double speed for 3 seconds
+                this.player.speed *= 2;
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 3000;
+                setTimeout(() => {
+                    this.player.speed /= 2;
+                    this.player.specialAbility.active = false;
+                }, 3000);
+                break;
+                
+            case "Dingle Blast":
+                // Fire a powerful shot that destroys enemies in a line
+                const blast = {
+                    x: this.player.x + this.player.width / 2 - 5,
+                    y: this.player.y,
+                    width: 10,
+                    height: 20,
+                    speed: 15,
+                    damage: 10
+                };
+                this.bullets.push(blast);
+                break;
+                
+            case "Tank Shield":
+                // Temporary invincibility
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 5000;
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 5000);
+                break;
+                
+            case "Ghost Bullets":
+                // Next 5 shots pass through walls and enemies
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 10000;
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 10000);
+                break;
+            
+            default:
+                // Generic boost
+                this.player.speed += 2;
+                this.player.damage += 1;
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 3000;
+                setTimeout(() => {
+                    this.player.speed -= 2;
+                    this.player.damage -= 1;
+                    this.player.specialAbility.active = false;
+                }, 3000);
+        }
+        
+        // Set cooldown
+        this.player.specialAbility.cooldown = true;
+        this.player.specialAbility.lastUsed = now;
+        
+        // Reset cooldown after time passes
+        setTimeout(() => {
+            this.player.specialAbility.cooldown = false;
+        }, this.player.specialAbility.cooldownTime);
     }
 }; 
