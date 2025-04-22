@@ -317,15 +317,67 @@ const Game = {
             image: new Image()
         };
         
-        // Set the player image
+        // Set the player image - ensure it's an absolute path
         if (character.image) {
-            console.log("Setting player image:", character.image);
-            this.player.image.src = character.image;
+            // Remove the leading slash if working locally (needed for proper file path resolution)
+            const imagePath = character.image.startsWith('/') ? 
+                character.image.substring(1) : character.image;
+            
+            console.log("Setting player image:", imagePath);
+            this.player.image.src = imagePath;
+            
+            // Add an error handler to log any image loading issues
+            this.player.image.onerror = () => {
+                console.error(`Failed to load player image: ${imagePath}`);
+                // Create a fallback image with the character's initial
+                this.createFallbackImage(character);
+            };
         }
         
         // Update lives based on character health
         this.lives = this.player.health;
         document.getElementById('game-lives').querySelector('span').textContent = this.lives;
+    },
+    
+    // Create a fallback image for characters when their image fails to load
+    createFallbackImage: function(character) {
+        console.log("Creating fallback image for:", character.name);
+        
+        // Create a canvas element
+        const canvas = document.createElement('canvas');
+        canvas.width = 100;
+        canvas.height = 100;
+        const ctx = canvas.getContext('2d');
+        
+        // Color based on rarity
+        const colors = {
+            common: '#aaaaaa',
+            rare: '#3498db',
+            epic: '#9b59b6',
+            legendary: '#f1c40f'
+        };
+        
+        // Set the color based on rarity
+        const color = colors[character.rarity] || '#ffffff';
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw character shape
+        ctx.fillStyle = color;
+        ctx.fillRect(10, 10, 80, 80);
+        
+        // Draw character initial
+        ctx.fillStyle = '#000000';
+        ctx.font = '40px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(character.name.charAt(0), 50, 50);
+        
+        // Set the character image to the canvas data URL
+        if (this.player && this.player.image) {
+            this.player.image.src = canvas.toDataURL('image/png');
+        }
     },
     
     // Create enemies

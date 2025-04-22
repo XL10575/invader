@@ -2,14 +2,15 @@
 function checkCharacterImages() {
     console.log("Checking character image paths...");
     
-    // For each character, directly use proper image paths
+    // For each character, fix image paths
     characterData.forEach(character => {
-        // Make sure the image path is correct
-        if (!character.image.startsWith('http') && !character.image.startsWith('data:')) {
-            // Make path absolute from root
-            if (!character.image.startsWith('/')) {
-                character.image = '/' + character.image;
-            }
+        // Fix image path - remove leading slash for local file access
+        if (character.image && character.image.startsWith('/')) {
+            character.image = character.image.substring(1);
+        }
+        
+        if (character.fallbackImage && character.fallbackImage.startsWith('/')) {
+            character.fallbackImage = character.fallbackImage.substring(1);
         }
         
         const img = new Image();
@@ -27,16 +28,10 @@ function checkCharacterImages() {
             if (character.fallbackImage) {
                 console.log(`Trying fallback image: ${character.fallbackImage}`);
                 
-                // Make fallback path absolute
-                let fallbackPath = character.fallbackImage;
-                if (!fallbackPath.startsWith('http') && !fallbackPath.startsWith('data:') && !fallbackPath.startsWith('/')) {
-                    fallbackPath = '/' + fallbackPath;
-                }
-                
                 const fallbackImg = new Image();
                 fallbackImg.onload = () => {
                     console.log(`✅ Fallback image loaded for ${character.name}`);
-                    character.image = fallbackPath;
+                    character.image = character.fallbackImage;
                 };
                 
                 fallbackImg.onerror = () => {
@@ -44,8 +39,7 @@ function checkCharacterImages() {
                     createDynamicImage(character);
                 };
                 
-                fallbackImg.src = fallbackPath;
-                character.fallbackImage = fallbackPath;
+                fallbackImg.src = character.fallbackImage;
             } else {
                 createDynamicImage(character);
             }
