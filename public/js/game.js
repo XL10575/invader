@@ -13,6 +13,8 @@ const Game = {
     level: 1,
     startTime: 0,
     playTime: 0,
+    coinsEarned: 0,
+    startingPlayerCoins: 0,
     
     // Game settings
     width: 800,
@@ -78,7 +80,6 @@ const Game = {
         // Create canvas
         this.setupCanvas();
         
-<<<<<<< HEAD
         // Setup input handlers
         this.setupInputHandlers();
         
@@ -121,13 +122,6 @@ const Game = {
         
         // Start game loop
         this.startGameLoop();
-=======
-        // Setup event listeners
-        this.setupEventListeners();
-        
-        // Create character display
-        this.createCharacterDisplay();
->>>>>>> parent of 02413eb (fix initial game start)
     },
     
     // Setup event listeners
@@ -135,10 +129,7 @@ const Game = {
         // Game navigation buttons
         document.getElementById('start-game').addEventListener('click', () => {
             this.showGameSection();
-<<<<<<< HEAD
             this.resetGame();
-=======
->>>>>>> parent of 02413eb (fix initial game start)
             this.startGame();
         });
         
@@ -154,34 +145,20 @@ const Game = {
             this.quitGame();
         });
         
-        document.getElementById('play-again-btn').addEventListener('click', () => {
-            this.resetGame();
-            this.startGame();
-        });
-        
-        document.getElementById('return-menu-btn').addEventListener('click', () => {
-            this.quitGame();
-        });
-        
-        // Show instructions button
+        // Instructions button
         document.getElementById('instructions-btn').addEventListener('click', () => {
             document.getElementById('instructions-modal').classList.remove('hide');
             this.togglePause();
         });
         
-        // Close instructions modal
+        // Close instructions button
         document.getElementById('close-instructions').addEventListener('click', () => {
             document.getElementById('instructions-modal').classList.add('hide');
-<<<<<<< HEAD
             if (document.getElementById('pause-menu').classList.contains('hide')) {
-=======
-            if (document.getElementById('pause-modal').classList.contains('hide')) {
->>>>>>> parent of 02413eb (fix initial game start)
                 this.togglePause();
             }
         });
         
-<<<<<<< HEAD
         // Game over buttons
         document.getElementById('restart-btn').addEventListener('click', () => {
             document.getElementById('game-over-section').classList.add('hide');
@@ -195,8 +172,6 @@ const Game = {
             Auth.showMainMenu();
         });
         
-=======
->>>>>>> parent of 02413eb (fix initial game start)
         // Keyboard events
         window.addEventListener('keydown', (e) => {
             if (this.isRunning && !this.isPaused && !this.gameOver) {
@@ -218,10 +193,6 @@ const Game = {
                 // Use special ability with Shift
                 if ((e.key === 'Shift' || e.key === 'ShiftLeft' || e.key === 'ShiftRight') && 
                     this.player && this.player.character && this.player.character.specialAbility) {
-<<<<<<< HEAD
-                    this.useSpecialAbility();
-=======
-                    console.log("Shift key pressed, attempting to use special ability");
                     this.useSpecialAbility();
                 }
             }
@@ -242,32 +213,9 @@ const Game = {
                 // Stop moving right
                 if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
                     this.player.moveRight = false;
->>>>>>> parent of 02413eb (fix initial game start)
-                }
-            }
-            
-            // Pause with Escape
-            if (e.key === 'Escape' && this.isRunning && !this.gameOver) {
-                this.togglePause();
-            }
-        });
-<<<<<<< HEAD
-        
-        window.addEventListener('keyup', (e) => {
-            if (this.isRunning) {
-                // Stop moving left
-                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
-                    this.player.moveLeft = false;
-                }
-                
-                // Stop moving right
-                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-                    this.player.moveRight = false;
                 }
             }
         });
-=======
->>>>>>> parent of 02413eb (fix initial game start)
     },
     
     // Show game section
@@ -277,7 +225,6 @@ const Game = {
         
         // Hide pause and game over menus
         document.getElementById('pause-menu').classList.add('hide');
-<<<<<<< HEAD
         document.getElementById('game-over-section').classList.add('hide');
     },
     
@@ -310,9 +257,6 @@ const Game = {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
         }
-=======
-        document.getElementById('game-over').classList.add('hide');
->>>>>>> parent of 02413eb (fix initial game start)
     },
     
     // Start the game
@@ -339,34 +283,6 @@ const Game = {
         
         // Start game loop
         this.gameLoop();
-    },
-    
-    // Reset the game
-    resetGame: function() {
-        this.isRunning = false;
-        this.isPaused = false;
-        this.gameOver = false;
-        
-        this.score = 0;
-        this.lives = 3;
-        this.level = 1;
-        
-        this.bullets = [];
-        this.enemies = [];
-        this.enemyBullets = [];
-        this.particles = [];
-        this.defensiveWalls = [];
-        
-        document.getElementById('game-score').querySelector('span').textContent = this.score;
-        document.getElementById('game-lives').querySelector('span').textContent = this.lives;
-        
-        // Hide game over menu
-        document.getElementById('game-over').classList.add('hide');
-        
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-            this.animationId = null;
-        }
     },
     
     // Toggle pause
@@ -461,7 +377,35 @@ const Game = {
     // Level up
     levelUp: function() {
         this.level++;
+        
+        // Update level display
+        document.getElementById('game-level').querySelector('span').textContent = this.level;
+        
+        // Create level-up text indication
+        this.createLevelUpText();
+        
+        // Create new enemies for this level
         this.createEnemies();
+    },
+    
+    // Create level-up text animation
+    createLevelUpText: function() {
+        const levelUpText = {
+            x: this.width / 2,
+            y: this.height / 2,
+            value: `LEVEL ${this.level}`,
+            color: '#ffff00', // Yellow
+            alpha: 1,
+            life: 60,
+            scale: 1
+        };
+        
+        // Add to texts array if it doesn't exist
+        if (!this.floatingTexts) {
+            this.floatingTexts = [];
+        }
+        
+        this.floatingTexts.push(levelUpText);
     },
     
     // Check collisions
@@ -546,9 +490,13 @@ const Game = {
                                                         otherEnemy.y + otherEnemy.height/2, 
                                                         5);
                                     
-                                    // Check if enemy is destroyed
+                                    // Check if enemy is destroyed by explosion
                                     if (otherEnemy.health <= 0) {
                                         this.score += otherEnemy.points;
+                                        
+                                        // Award coins based on enemy type
+                                        this.awardCoinsForEnemy(otherEnemy);
+                                        
                                         document.getElementById('game-score').querySelector('span').textContent = this.score;
                                         
                                         this.createExplosion(otherEnemy.x + otherEnemy.width/2, 
@@ -576,6 +524,10 @@ const Game = {
                     // Remove enemy if health depleted
                     if (enemy.health <= 0) {
                         this.score += enemy.points;
+                        
+                        // Award coins based on enemy type
+                        this.awardCoinsForEnemy(enemy);
+                        
                         document.getElementById('game-score').querySelector('span').textContent = this.score;
                         
                         this.createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, 20);
@@ -1483,7 +1435,6 @@ const Game = {
             abilityStatusDiv.textContent = "Ability ready (press Shift)";
             abilityStatusDiv.style.color = '#00ffff';
         }
-<<<<<<< HEAD
     },
     
     // Award coins based on enemy type
@@ -1796,7 +1747,5 @@ const Game = {
         // Start the animation loop
         requestAnimationFrame(this.gameLoop.bind(this));
         console.log('Game loop started');
-=======
->>>>>>> parent of 02413eb (fix initial game start)
     }
 }; 
