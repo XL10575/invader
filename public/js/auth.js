@@ -6,7 +6,7 @@ const Auth = {
     // Initialize Auth
     init: function() {
         this.setupEventListeners();
-        this.checkAuthStatus();
+        this.loadSavedUser();
     },
     
     // Setup event listeners for login/register forms
@@ -81,7 +81,7 @@ const Auth = {
     // Create a mock user for testing
     createMockUser: async function(email, username = 'Player') {
         // Create a mock user with default character
-        let defaultChar = characterData.find(char => char._id === defaultCharacters[0]);
+        const defaultChar = characterData.find(char => char._id === defaultCharacters[0]);
         
         if (!defaultChar) {
             console.error("Default character not found! Using first character instead.");
@@ -131,20 +131,9 @@ const Auth = {
         this.showMainMenu();
     },
     
-    // Check auth status
-    checkAuthStatus: function() {
-        const currentUserEmail = localStorage.getItem('currentUserEmail');
-        
-        if (currentUserEmail) {
-            const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
-            if (savedUsers[currentUserEmail]) {
-                // Auto-login with saved data
-                this.loadUser(savedUsers[currentUserEmail]);
-                return;
-            }
-        }
-        
-        // If no saved user or invalid data, show login
+    // Try to load the saved user on startup
+    loadSavedUser: function() {
+        // Always start with login screen in this version
         this.showLoginSection();
     },
     
