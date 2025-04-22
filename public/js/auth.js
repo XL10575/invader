@@ -31,17 +31,8 @@ const Auth = {
             const password = document.getElementById('login-password').value;
             
             try {
-                // Check if user exists in localStorage
-                const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
-                if (savedUsers[email]) {
-                    // Load existing user
-                    this.loadUser(savedUsers[email]);
-                    alert(`Welcome back, ${savedUsers[email].username}!`);
-                } else {
-                    // Create new user if not found
-                    await this.createMockUser(email);
-                    alert('New account created!');
-                }
+                // For demo purposes, just create a mock user
+                await this.createMockUser(email);
             } catch (error) {
                 alert(error.message);
             }
@@ -57,15 +48,8 @@ const Auth = {
             const password = document.getElementById('register-password').value;
             
             try {
-                // Check if user already exists
-                const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
-                if (savedUsers[email]) {
-                    alert('An account with this email already exists. Please login instead.');
-                } else {
-                    // Create new user
-                    await this.createMockUser(email, username);
-                    alert('Account created successfully!');
-                }
+                // For demo purposes, just create a mock user
+                await this.createMockUser(email, username);
             } catch (error) {
                 alert(error.message);
             }
@@ -91,23 +75,24 @@ const Auth = {
         this.currentUser = {
             email: email,
             username: username,
-            coins: 10, // Changed from 500 to 10
+            coins: 500,
             highScore: 0,
             characters: [defaultChar],
             selectedCharacter: defaultChar
         };
         
-        // Save to localStorage
-        this.saveUser();
+        // Store mock token
+        localStorage.setItem('token', 'mock-token-for-demo');
         
         this.showMainMenu();
         return this.currentUser;
     },
     
-    // Save current user data to localStorage
-    saveUser: function() {
-        if (!this.currentUser) return;
+    // Check if user is logged in
+    checkAuthStatus: function() {
+        const token = localStorage.getItem('token');
         
+<<<<<<< HEAD
         // Get all saved users
         const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
         
@@ -146,13 +131,35 @@ const Auth = {
         
         // If no saved user or invalid data, show login
         this.showLoginSection();
+=======
+        if (token) {
+            // For demo, create a mock user if token exists
+            if (token === 'mock-token-for-demo' && !this.currentUser) {
+                this.createMockUser('demo@example.com')
+                    .then(() => {
+                        this.showMainMenu();
+                    });
+            } else {
+                this.fetchUserData()
+                    .then(() => {
+                        this.showMainMenu();
+                    })
+                    .catch(() => {
+                        this.logout();
+                    });
+            }
+        } else {
+            this.showLoginSection();
+        }
+>>>>>>> parent of 02413eb (fix initial game start)
     },
     
     // Fetch user data
     fetchUserData: async function() {
         try {
             if (!this.currentUser) {
-                throw new Error("No user data available");
+                // For demo, create a mock user
+                return this.createMockUser('demo@example.com');
             }
             
             document.getElementById('user-coins').querySelector('span').textContent = this.currentUser.coins;
@@ -167,15 +174,8 @@ const Auth = {
     // Login user
     login: async function(email, password) {
         try {
-            // Try to find user in saved users
-            const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
-            if (savedUsers[email]) {
-                this.loadUser(savedUsers[email]);
-                return this.currentUser;
-            } else {
-                // Create new user if not found
-                return this.createMockUser(email);
-            }
+            // For demo, create a mock user
+            return this.createMockUser(email);
         } catch (error) {
             console.error('Login error:', error);
             throw error;
@@ -185,13 +185,7 @@ const Auth = {
     // Register user
     register: async function(username, email, password) {
         try {
-            // Check if user already exists
-            const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
-            if (savedUsers[email]) {
-                throw new Error('User already exists');
-            }
-            
-            // Create new user
+            // For demo, create a mock user
             return this.createMockUser(email, username);
         } catch (error) {
             console.error('Registration error:', error);
@@ -201,8 +195,7 @@ const Auth = {
     
     // Logout user
     logout: function() {
-        // Remove current user email but keep user data
-        localStorage.removeItem('currentUserEmail');
+        localStorage.removeItem('token');
         this.currentUser = null;
         this.showLoginSection();
     },
@@ -244,9 +237,6 @@ const Auth = {
             if (document.getElementById('gacha-user-coins')) {
                 document.getElementById('gacha-user-coins').querySelector('span').textContent = coins;
             }
-            
-            // Save updated data
-            this.saveUser();
         }
     },
     
@@ -255,9 +245,6 @@ const Auth = {
         if (this.currentUser && score > this.currentUser.highScore) {
             this.currentUser.highScore = score;
             document.getElementById('user-high-score').querySelector('span').textContent = score;
-            
-            // Save updated data
-            this.saveUser();
         }
     }
 }; 
