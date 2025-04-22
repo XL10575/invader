@@ -27,6 +27,10 @@ const Game = {
     defensiveWalls: [],
     enemyDirection: 1, // Add a property to track enemy direction
     
+    // Character UI
+    characterDisplay: null,
+    abilityIndicator: null,
+    
     // Animation frame
     animationId: null,
     
@@ -41,6 +45,9 @@ const Game = {
         
         // Setup event listeners
         this.setupEventListeners();
+        
+        // Create character display
+        this.createCharacterDisplay();
     },
     
     // Setup event listeners
@@ -157,6 +164,9 @@ const Game = {
         
         // Create player
         this.createPlayer();
+        
+        // Update character display
+        this.updateCharacterDisplay();
         
         // Create defensive walls
         this.createDefensiveWalls();
@@ -507,6 +517,9 @@ const Game = {
         this.updateEnemyBullets();
         this.updateParticles();
         
+        // Update ability cooldown display
+        this.updateAbilityCooldown();
+        
         // Check collisions
         this.checkCollisions();
         
@@ -636,33 +649,40 @@ const Game = {
             const bullet = this.bullets[i];
             let bulletRemoved = false;
             
-            // Check collision with defensive walls first
-            for (const wall of this.defensiveWalls) {
-                for (let j = 0; j < wall.segments.length; j++) {
-                    const segment = wall.segments[j];
-                    
-                    if (this.isColliding(bullet, segment)) {
-                        segment.health -= bullet.damage;
+            // Skip wall collision for Ghost Bullets ability
+            const ghostBullets = this.player.specialAbility.active && 
+                                this.player.character.specialAbility && 
+                                this.player.character.specialAbility.name === "Ghost Bullets";
+            
+            // Check collision with defensive walls first (unless using Ghost Bullets)
+            if (!ghostBullets) {
+                for (const wall of this.defensiveWalls) {
+                    for (let j = 0; j < wall.segments.length; j++) {
+                        const segment = wall.segments[j];
                         
-                        // Create explosion particles
-                        this.createExplosion(bullet.x, bullet.y, 3);
-                        
-                        // Remove bullet
-                        this.bullets.splice(i, 1);
-                        i--;
-                        bulletRemoved = true;
-                        
-                        // Remove segment if health depleted
-                        if (segment.health <= 0) {
-                            wall.segments.splice(j, 1);
-                            j--;
+                        if (this.isColliding(bullet, segment)) {
+                            segment.health -= bullet.damage;
+                            
+                            // Create explosion particles
+                            this.createExplosion(bullet.x, bullet.y, 3);
+                            
+                            // Remove bullet
+                            this.bullets.splice(i, 1);
+                            i--;
+                            bulletRemoved = true;
+                            
+                            // Remove segment if health depleted
+                            if (segment.health <= 0) {
+                                wall.segments.splice(j, 1);
+                                j--;
+                            }
+                            
+                            break;
                         }
-                        
-                        break;
                     }
+                    
+                    if (bulletRemoved) break;
                 }
-                
-                if (bulletRemoved) break;
             }
             
             if (bulletRemoved) continue;
@@ -677,10 +697,12 @@ const Game = {
                     // Create explosion particles
                     this.createExplosion(bullet.x, bullet.y);
                     
-                    // Remove bullet
-                    this.bullets.splice(i, 1);
-                    i--;
-                    bulletRemoved = true;
+                    // Only remove the bullet if not using Ghost Bullets or if it's not a special blast
+                    if (!ghostBullets && (!bullet.ghostBullet && !bullet.isBlast)) {
+                        this.bullets.splice(i, 1);
+                        i--;
+                        bulletRemoved = true;
+                    }
                     
                     // Remove enemy if health depleted
                     if (enemy.health <= 0) {
@@ -692,7 +714,7 @@ const Game = {
                         j--;
                     }
                     
-                    break;
+                    if (bulletRemoved) break;
                 }
             }
         }
@@ -734,10 +756,18 @@ const Game = {
             
             // Enemy bullets vs player
             if (this.isColliding(bullet, this.player)) {
-                this.lives--;
-                document.getElementById('game-lives').querySelector('span').textContent = this.lives;
+                // Skip damage if player has Tank Shield active
+                const hasShield = this.player.specialAbility.active && 
+                                  this.player.character.specialAbility && 
+                                  this.player.character.specialAbility.name === "Tank Shield";
                 
-                this.createExplosion(bullet.x, bullet.y);
+                if (!hasShield) {
+                    this.lives--;
+                    document.getElementById('game-lives').querySelector('span').textContent = this.lives;
+                    
+                    this.createExplosion(bullet.x, bullet.y);
+                }
+                
                 this.enemyBullets.splice(i, 1);
                 i--;
                 
@@ -883,15 +913,23 @@ const Game = {
         const now = Date.now();
         const ability = this.player.character.specialAbility;
         
+        console.log("Using special ability:", ability.name);
+        
         // Implement special ability based on character
         switch (ability.name) {
+            case "Shark Dash":
             case "Dodge Master":
                 // Double speed for 3 seconds
+                const originalSpeed = this.player.speed;
                 this.player.speed *= 2;
                 this.player.specialAbility.active = true;
                 this.player.specialAbility.duration = 3000;
+                
+                // Create visual effect
+                this.createExplosion(this.player.x + this.player.width/2, this.player.y, 15);
+                
                 setTimeout(() => {
-                    this.player.speed /= 2;
+                    this.player.speed = originalSpeed;
                     this.player.specialAbility.active = false;
                 }, 3000);
                 break;
@@ -904,38 +942,141 @@ const Game = {
                     width: 10,
                     height: 20,
                     speed: 15,
-                    damage: 10
+                    damage: 10,
+                    isBlast: true
                 };
                 this.bullets.push(blast);
+                this.player.specialAbility.active = true;
+                
+                // Reset after a short duration
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 1000);
+                break;
+                
+            case "Carpet Bombing":
+                // Drop multiple bombs that destroy all enemies below you
+                this.player.specialAbility.active = true;
+                
+                // Create multiple blasts
+                for (let i = 0; i < 7; i++) {
+                    setTimeout(() => {
+                        const bombX = this.player.x + (i % 3 - 1) * this.player.width;
+                        const bomb = {
+                            x: bombX,
+                            y: this.player.y,
+                            width: 8,
+                            height: 15,
+                            speed: 12,
+                            damage: 5,
+                            isBlast: true
+                        };
+                        this.bullets.push(bomb);
+                    }, i * 150);
+                }
+                
+                // Reset after all bombs are dropped
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 1500);
                 break;
                 
             case "Tank Shield":
                 // Temporary invincibility
                 this.player.specialAbility.active = true;
                 this.player.specialAbility.duration = 5000;
+                
+                // Create shield effect
+                const shieldInterval = setInterval(() => {
+                    if (this.player.specialAbility.active) {
+                        this.createExplosion(
+                            this.player.x + this.player.width/2, 
+                            this.player.y + this.player.height/2, 
+                            3
+                        );
+                    } else {
+                        clearInterval(shieldInterval);
+                    }
+                }, 200);
+                
                 setTimeout(() => {
                     this.player.specialAbility.active = false;
                 }, 5000);
                 break;
                 
             case "Ghost Bullets":
-                // Next 5 shots pass through walls and enemies
+                // Next shots pass through walls and enemies
                 this.player.specialAbility.active = true;
                 this.player.specialAbility.duration = 10000;
+                
+                // Create ghost effect
+                const ghostInterval = setInterval(() => {
+                    if (this.player.specialAbility.active) {
+                        this.createGhostEffect();
+                    } else {
+                        clearInterval(ghostInterval);
+                    }
+                }, 300);
+                
                 setTimeout(() => {
                     this.player.specialAbility.active = false;
                 }, 10000);
                 break;
+                
+            case "Bat Swing":
+                // Reflect enemy bullets for a short time
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 3000;
+                
+                // Reflect all enemy bullets
+                const reflectInterval = setInterval(() => {
+                    if (this.player.specialAbility.active) {
+                        // Reflect any enemy bullets near the player
+                        for (let i = 0; i < this.enemyBullets.length; i++) {
+                            const bullet = this.enemyBullets[i];
+                            
+                            // Check if bullet is within reflection range
+                            if (Math.abs(bullet.y - this.player.y) < 50 &&
+                                Math.abs(bullet.x - this.player.x) < this.player.width * 2) {
+                                
+                                // Remove enemy bullet
+                                this.enemyBullets.splice(i, 1);
+                                i--;
+                                
+                                // Create a reflected bullet
+                                const reflected = {
+                                    x: bullet.x,
+                                    y: bullet.y,
+                                    width: bullet.width,
+                                    height: bullet.height,
+                                    speed: bullet.speed + 2,
+                                    damage: 2
+                                };
+                                
+                                this.bullets.push(reflected);
+                                this.createExplosion(bullet.x, bullet.y, 2);
+                            }
+                        }
+                    } else {
+                        clearInterval(reflectInterval);
+                    }
+                }, 100);
+                
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 3000);
+                break;
             
             default:
                 // Generic boost
+                const originalDamage = this.player.damage;
                 this.player.speed += 2;
                 this.player.damage += 1;
                 this.player.specialAbility.active = true;
                 this.player.specialAbility.duration = 3000;
                 setTimeout(() => {
                     this.player.speed -= 2;
-                    this.player.damage -= 1;
+                    this.player.damage = originalDamage;
                     this.player.specialAbility.active = false;
                 }, 3000);
         }
@@ -948,5 +1089,145 @@ const Game = {
         setTimeout(() => {
             this.player.specialAbility.cooldown = false;
         }, this.player.specialAbility.cooldownTime);
+    },
+    
+    // Create ghost effect for Ghost Bullets ability
+    createGhostEffect: function() {
+        if (!this.player) return;
+        
+        for (let i = 0; i < 3; i++) {
+            const particle = {
+                x: this.player.x + Math.random() * this.player.width,
+                y: this.player.y + Math.random() * this.player.height,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                radius: Math.random() * 2 + 1,
+                color: 'rgba(200, 230, 255, 0.7)',
+                alpha: 0.7
+            };
+            
+            this.particles.push(particle);
+        }
+    },
+
+    // Create character display UI on the left side
+    createCharacterDisplay: function() {
+        // Create the character display container
+        const container = document.createElement('div');
+        container.id = 'character-display';
+        container.style.position = 'absolute';
+        container.style.left = '10px';
+        container.style.top = '70px';
+        container.style.width = '60px';
+        container.style.padding = '5px';
+        container.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        container.style.border = '2px solid #444';
+        container.style.borderRadius = '5px';
+        container.style.textAlign = 'center';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.alignItems = 'center';
+        
+        // Character image
+        const charImage = document.createElement('div');
+        charImage.id = 'char-display-image';
+        charImage.style.width = '50px';
+        charImage.style.height = '50px';
+        charImage.style.marginBottom = '5px';
+        charImage.style.backgroundColor = '#222';
+        charImage.style.backgroundSize = 'cover';
+        charImage.style.borderRadius = '5px';
+        
+        // Ability indicator
+        const abilityIndicator = document.createElement('div');
+        abilityIndicator.id = 'ability-indicator';
+        abilityIndicator.style.width = '50px';
+        abilityIndicator.style.height = '10px';
+        abilityIndicator.style.backgroundColor = '#444';
+        abilityIndicator.style.borderRadius = '5px';
+        abilityIndicator.style.overflow = 'hidden';
+        
+        // Ability progress
+        const abilityProgress = document.createElement('div');
+        abilityProgress.id = 'ability-progress';
+        abilityProgress.style.width = '100%';
+        abilityProgress.style.height = '100%';
+        abilityProgress.style.backgroundColor = '#3498db';
+        abilityProgress.style.transition = 'width 0.1s linear';
+        
+        // Ability label
+        const abilityLabel = document.createElement('div');
+        abilityLabel.id = 'ability-label';
+        abilityLabel.textContent = 'SHIFT';
+        abilityLabel.style.fontSize = '8px';
+        abilityLabel.style.color = '#fff';
+        abilityLabel.style.marginTop = '2px';
+        abilityLabel.style.fontFamily = "'Press Start 2P', cursive";
+        
+        // Assemble the components
+        abilityIndicator.appendChild(abilityProgress);
+        container.appendChild(charImage);
+        container.appendChild(abilityIndicator);
+        container.appendChild(abilityLabel);
+        
+        // Add to game section
+        document.getElementById('game-section').appendChild(container);
+        
+        // Store references
+        this.characterDisplay = charImage;
+        this.abilityIndicator = abilityProgress;
+    },
+    
+    // Update character display
+    updateCharacterDisplay: function() {
+        if (!this.player || !this.characterDisplay) return;
+        
+        // Update character image
+        if (this.player.image && this.player.image.complete && this.player.image.naturalWidth > 0) {
+            this.characterDisplay.style.backgroundImage = `url(${this.player.image.src})`;
+        } else if (this.player.character) {
+            // Create colored block for character
+            const colors = {
+                common: '#aaaaaa',
+                rare: '#3498db',
+                epic: '#9b59b6',
+                legendary: '#f1c40f'
+            };
+            
+            const color = colors[this.player.character.rarity] || '#ffffff';
+            this.characterDisplay.style.backgroundColor = color;
+            this.characterDisplay.textContent = this.player.character.name.charAt(0);
+            this.characterDisplay.style.color = '#000';
+            this.characterDisplay.style.fontWeight = 'bold';
+            this.characterDisplay.style.fontSize = '24px';
+            this.characterDisplay.style.display = 'flex';
+            this.characterDisplay.style.alignItems = 'center';
+            this.characterDisplay.style.justifyContent = 'center';
+        }
+    },
+    
+    // Update ability cooldown display
+    updateAbilityCooldown: function() {
+        if (!this.player || !this.abilityIndicator) return;
+        
+        const now = Date.now();
+        
+        if (this.player.specialAbility.active) {
+            // Show as active
+            this.abilityIndicator.style.backgroundColor = '#2ecc71';
+            this.abilityIndicator.style.width = '100%';
+        } else if (this.player.specialAbility.cooldown) {
+            // Calculate cooldown progress
+            const elapsed = now - this.player.specialAbility.lastUsed;
+            const percent = (elapsed / this.player.specialAbility.cooldownTime) * 100;
+            
+            // Update indicator
+            this.abilityIndicator.style.backgroundColor = '#e74c3c';
+            this.abilityIndicator.style.width = `${Math.min(percent, 100)}%`;
+        } else {
+            // Ready to use
+            this.abilityIndicator.style.backgroundColor = '#3498db';
+            this.abilityIndicator.style.width = '100%';
+        }
     }
 }; 

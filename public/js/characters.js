@@ -105,46 +105,6 @@ const Characters = {
                 card.classList.add('locked');
             }
             
-            // Pre-load the character image to check if it exists
-            const preloadImg = new Image();
-            preloadImg.onload = () => {
-                // Image loaded successfully, update the card
-                card.querySelector('.character-img img').src = character.image;
-            };
-            preloadImg.onerror = () => {
-                // Image failed to load, create a colored block with initial
-                const canvas = document.createElement('canvas');
-                canvas.width = 100;
-                canvas.height = 100;
-                const ctx = canvas.getContext('2d');
-                
-                // Color based on rarity
-                const colors = {
-                    common: '#aaaaaa',
-                    rare: '#3498db',
-                    epic: '#9b59b6',
-                    legendary: '#f1c40f'
-                };
-                
-                // Set the color based on rarity
-                const color = colors[character.rarity] || '#ffffff';
-                
-                // Draw character shape
-                ctx.fillStyle = color;
-                ctx.fillRect(10, 10, 80, 80);
-                
-                // Draw character initial
-                ctx.fillStyle = '#000000';
-                ctx.font = '40px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(character.name.charAt(0), 50, 50);
-                
-                // Update the image source
-                card.querySelector('.character-img img').src = canvas.toDataURL('image/png');
-            };
-            preloadImg.src = character.image;
-            
             // Create card content with character image placeholder first
             card.innerHTML = `
                 <div class="character-img">
@@ -155,6 +115,23 @@ const Characters = {
                 ${!character.owned ? '<div class="locked-label">LOCKED</div>' : ''}
             `;
             
+            // Pre-load the character image to check if it exists
+            const preloadImg = new Image();
+            preloadImg.onload = () => {
+                // Image loaded successfully, update the card
+                const imgElement = card.querySelector('.character-img img');
+                if (imgElement) {
+                    imgElement.src = character.image;
+                }
+            };
+            
+            preloadImg.onerror = () => {
+                // Image failed to load, create a colored block with initial
+                this.createFallbackImage(character, card.querySelector('.character-img img'));
+            };
+            
+            preloadImg.src = character.image;
+            
             // Add event listener to view character details
             card.addEventListener('click', () => {
                 this.viewCharacterDetails(character);
@@ -164,9 +141,59 @@ const Characters = {
         });
     },
     
+    // Create a fallback image for characters when their image fails to load
+    createFallbackImage: function(character, imgElement) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 100;
+        canvas.height = 100;
+        const ctx = canvas.getContext('2d');
+        
+        // Color based on rarity
+        const colors = {
+            common: '#aaaaaa',
+            rare: '#3498db',
+            epic: '#9b59b6',
+            legendary: '#f1c40f'
+        };
+        
+        // Set the color based on rarity
+        const color = colors[character.rarity] || '#ffffff';
+        
+        // Draw character shape
+        ctx.fillStyle = color;
+        ctx.fillRect(10, 10, 80, 80);
+        
+        // Draw character initial
+        ctx.fillStyle = '#000000';
+        ctx.font = '40px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(character.name.charAt(0), 50, 50);
+        
+        // Update the image source
+        const dataURL = canvas.toDataURL('image/png');
+        if (imgElement) {
+            imgElement.src = dataURL;
+        }
+        
+        // Also update the character data so other parts of the app can use it
+        character.fallbackImage = dataURL;
+        if (!character._usedFallback) {
+            character.image = dataURL;
+            character._usedFallback = true;
+        }
+    },
+    
     // View character details
     viewCharacterDetails: function(character) {
         const detailsSection = document.getElementById('character-details');
+        
+        // Set a loading placeholder initially
+        detailsSection.querySelector('.character-image').innerHTML = `
+            <div class="loading-placeholder" style="width:200px;height:200px;background:#222;display:flex;align-items:center;justify-content:center;">
+                <span>Loading...</span>
+            </div>
+        `;
         
         // Pre-load the character image to check if it exists
         const preloadImg = new Image();
@@ -174,6 +201,7 @@ const Characters = {
             // Image loaded successfully, update the details
             detailsSection.querySelector('.character-image').innerHTML = `<img src="${character.image}" alt="${character.name}">`;
         };
+        
         preloadImg.onerror = () => {
             // Image failed to load, create a colored block with initial
             const canvas = document.createElement('canvas');
@@ -204,16 +232,18 @@ const Characters = {
             ctx.fillText(character.name.charAt(0), 100, 100);
             
             // Update the image source
-            detailsSection.querySelector('.character-image').innerHTML = `<img src="${canvas.toDataURL('image/png')}" alt="${character.name}">`;
+            const dataURL = canvas.toDataURL('image/png');
+            detailsSection.querySelector('.character-image').innerHTML = `<img src="${dataURL}" alt="${character.name}">`;
+            
+            // Also update the character data
+            character.fallbackImage = dataURL;
+            if (!character._usedFallback) {
+                character.image = dataURL;
+                character._usedFallback = true;
+            }
         };
-        preloadImg.src = character.image;
         
-        // Set a loading placeholder initially
-        detailsSection.querySelector('.character-image').innerHTML = `
-            <div class="loading-placeholder" style="width:200px;height:200px;background:#222;display:flex;align-items:center;justify-content:center;">
-                <span>Loading...</span>
-            </div>
-        `;
+        preloadImg.src = character.image;
         
         detailsSection.querySelector('.character-name').textContent = character.name;
         
@@ -269,8 +299,37 @@ const Characters = {
             const result = await api.selectCharacter(characterId);
             
             if (result.success) {
-                // Update selected character in game logic
-                Game.selectedCharacter = this.characters.find(char => char._id === characterId);
+                // Find the selected character
+                const selectedChar = this.characters.find(char => char._id === characterId);
+                
+                // Update Auth.currentUser
+                if (Auth.currentUser) {
+                    Auth.currentUser.selectedCharacter = selectedChar;
+                }
+                
+                // Update the character in game data
+                if (Game) {
+                    Game.selectedCharacter = selectedChar;
+                    
+                    // If the game is already running, update the player
+                    if (Game.player) {
+                        // Store old position
+                        const oldX = Game.player.x;
+                        const oldY = Game.player.y;
+                        
+                        // Create new player with updated character
+                        Game.createPlayer();
+                        
+                        // Restore position
+                        Game.player.x = oldX;
+                        Game.player.y = oldY;
+                        
+                        // Update character display
+                        if (Game.characterDisplay) {
+                            Game.updateCharacterDisplay();
+                        }
+                    }
+                }
                 
                 return true;
             } else {

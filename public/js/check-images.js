@@ -21,6 +21,9 @@ function checkCharacterImages() {
             console.log(`✅ Image loaded successfully for ${character.name}: ${character.image}`);
             // Store the information that this image is loaded correctly
             character._imageLoaded = true;
+            
+            // Update in-game character if this is the current character
+            updateInGameCharacterIfNeeded(character);
         };
         
         img.onerror = () => {
@@ -32,6 +35,9 @@ function checkCharacterImages() {
             
             // Store the information that fallback was used
             character._usedFallback = true;
+            
+            // Update in-game character if this is the current character
+            updateInGameCharacterIfNeeded(character);
         };
         
         // Set the source (this will trigger onload or onerror)
@@ -44,6 +50,11 @@ function checkCharacterImages() {
         if (!Game.player.image || !Game.player.image.complete || Game.player.image.naturalWidth === 0) {
             console.log("In-game character image not loaded, creating fallback...");
             Game.createFallbackImage(Game.player.character);
+            
+            // Also update the character display in the UI
+            if (Game.characterDisplay) {
+                Game.updateCharacterDisplay();
+            }
         }
     }
 }
@@ -93,6 +104,23 @@ function createDynamicImage(character) {
     console.log(`✅ Created dynamic image for ${character.name}`);
 }
 
+// Update in-game character image if this is the current character
+function updateInGameCharacterIfNeeded(character) {
+    if (Game && Game.player && Game.player.character && 
+        Game.player.character._id === character._id) {
+        
+        console.log("Updating in-game character image");
+        
+        // Update the player image
+        Game.player.image.src = character.image;
+        
+        // Also update the character display in the UI
+        if (Game.characterDisplay) {
+            Game.updateCharacterDisplay();
+        }
+    }
+}
+
 // Retry loading in-game character images if they failed initially
 function retryInGameCharacterImage() {
     if (Game && Game.player && Game.player.character) {
@@ -132,6 +160,11 @@ function retryInGameCharacterImage() {
             // Update the in-game character image
             Game.player.image.src = canvas.toDataURL('image/png');
             
+            // Also update the character display in the UI
+            if (Game.characterDisplay) {
+                Game.updateCharacterDisplay();
+            }
+            
             console.log("Created fallback for in-game character");
         }
     }
@@ -145,5 +178,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Try to fix in-game character image after a few seconds
         setTimeout(retryInGameCharacterImage, 2000);
+    }, 1000);
+    
+    // Add repeated checks to handle character changes
+    setInterval(() => {
+        if (Game && Game.player && Game.player.character && Game.characterDisplay) {
+            Game.updateCharacterDisplay();
+            Game.updateAbilityCooldown();
+        }
     }, 1000);
 }); 
