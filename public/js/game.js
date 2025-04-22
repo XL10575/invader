@@ -162,6 +162,10 @@ const Game = {
         document.getElementById('game-score').querySelector('span').textContent = this.score;
         document.getElementById('game-lives').querySelector('span').textContent = this.lives;
         
+        // Make sure game over menu is hidden
+        document.getElementById('game-over').classList.add('hide');
+        document.getElementById('pause-menu').classList.add('hide');
+        
         // Start game loop
         this.gameLoop();
     },
@@ -184,6 +188,9 @@ const Game = {
         
         document.getElementById('game-score').querySelector('span').textContent = this.score;
         document.getElementById('game-lives').querySelector('span').textContent = this.lives;
+        
+        // Hide game over menu
+        document.getElementById('game-over').classList.add('hide');
         
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
@@ -469,13 +476,13 @@ const Game = {
     
     // Update enemies
     updateEnemies: function() {
-        let moveDown = false;
+        let changeDirection = false;
         let direction = 1;
         
         // Check if any enemy is at the edge
         for (const enemy of this.enemies) {
             if (enemy.x + enemy.width > this.width || enemy.x < 0) {
-                moveDown = true;
+                changeDirection = true;
                 direction = (enemy.x + enemy.width > this.width) ? -1 : 1;
                 break;
             }
@@ -483,12 +490,12 @@ const Game = {
         
         // Update each enemy
         for (const enemy of this.enemies) {
-            if (moveDown) {
-                enemy.y += 10; // Reduced from 20 to 10 for slower downward movement
-                enemy.x += direction * 5; // Reduced from 10 to 5
+            if (changeDirection) {
+                // Only change direction, don't move down
+                enemy.x += direction * 5; // Adjust position immediately to prevent sticking at edge
             } else {
-                // Drastically reduce the horizontal movement speed
-                enemy.x += direction * (0.2 + this.level * 0.1); // Reduced from 1 + level * 0.5
+                // Horizontal movement only
+                enemy.x += direction * (0.2 + this.level * 0.1);
             }
             
             // Check if enemy reached the bottom
