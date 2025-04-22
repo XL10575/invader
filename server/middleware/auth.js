@@ -12,12 +12,13 @@ const auth = (req, res, next) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'space_invaders_secret_token');
     
     // Add user from payload
     req.user = decoded.user;
     next();
   } catch (err) {
+    console.error('Authentication error:', err);
     res.status(401).json({ msg: 'Token is not valid' });
   }
 };
