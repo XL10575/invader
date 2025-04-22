@@ -295,7 +295,7 @@ const Game = {
             y: this.height - 60,
             width: 50,
             height: 30,
-            speed: 5 + stats.speed / 2,
+            speed: 3 + stats.speed / 3,
             fireRate: 300 - stats.fireRate * 20, // ms between shots
             lastFired: 0,
             damage: stats.damage,

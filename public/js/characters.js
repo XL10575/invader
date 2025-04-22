@@ -105,10 +105,50 @@ const Characters = {
                 card.classList.add('locked');
             }
             
-            // Create card content with character image
+            // Pre-load the character image to check if it exists
+            const preloadImg = new Image();
+            preloadImg.onload = () => {
+                // Image loaded successfully, update the card
+                card.querySelector('.character-img img').src = character.image;
+            };
+            preloadImg.onerror = () => {
+                // Image failed to load, create a colored block with initial
+                const canvas = document.createElement('canvas');
+                canvas.width = 100;
+                canvas.height = 100;
+                const ctx = canvas.getContext('2d');
+                
+                // Color based on rarity
+                const colors = {
+                    common: '#aaaaaa',
+                    rare: '#3498db',
+                    epic: '#9b59b6',
+                    legendary: '#f1c40f'
+                };
+                
+                // Set the color based on rarity
+                const color = colors[character.rarity] || '#ffffff';
+                
+                // Draw character shape
+                ctx.fillStyle = color;
+                ctx.fillRect(10, 10, 80, 80);
+                
+                // Draw character initial
+                ctx.fillStyle = '#000000';
+                ctx.font = '40px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(character.name.charAt(0), 50, 50);
+                
+                // Update the image source
+                card.querySelector('.character-img img').src = canvas.toDataURL('image/png');
+            };
+            preloadImg.src = character.image;
+            
+            // Create card content with character image placeholder first
             card.innerHTML = `
                 <div class="character-img">
-                    <img src="${character.image}" alt="${character.name}">
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" alt="${character.name}">
                 </div>
                 <h3>${character.name}</h3>
                 <div class="rarity ${character.rarity}">${character.rarity.charAt(0).toUpperCase() + character.rarity.slice(1)}</div>
@@ -128,8 +168,53 @@ const Characters = {
     viewCharacterDetails: function(character) {
         const detailsSection = document.getElementById('character-details');
         
-        // Update character details
-        detailsSection.querySelector('.character-image').innerHTML = `<img src="${character.image}" alt="${character.name}">`;
+        // Pre-load the character image to check if it exists
+        const preloadImg = new Image();
+        preloadImg.onload = () => {
+            // Image loaded successfully, update the details
+            detailsSection.querySelector('.character-image').innerHTML = `<img src="${character.image}" alt="${character.name}">`;
+        };
+        preloadImg.onerror = () => {
+            // Image failed to load, create a colored block with initial
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 200;
+            const ctx = canvas.getContext('2d');
+            
+            // Color based on rarity
+            const colors = {
+                common: '#aaaaaa',
+                rare: '#3498db',
+                epic: '#9b59b6',
+                legendary: '#f1c40f'
+            };
+            
+            // Set the color based on rarity
+            const color = colors[character.rarity] || '#ffffff';
+            
+            // Draw character shape
+            ctx.fillStyle = color;
+            ctx.fillRect(20, 20, 160, 160);
+            
+            // Draw character initial
+            ctx.fillStyle = '#000000';
+            ctx.font = '80px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(character.name.charAt(0), 100, 100);
+            
+            // Update the image source
+            detailsSection.querySelector('.character-image').innerHTML = `<img src="${canvas.toDataURL('image/png')}" alt="${character.name}">`;
+        };
+        preloadImg.src = character.image;
+        
+        // Set a loading placeholder initially
+        detailsSection.querySelector('.character-image').innerHTML = `
+            <div class="loading-placeholder" style="width:200px;height:200px;background:#222;display:flex;align-items:center;justify-content:center;">
+                <span>Loading...</span>
+            </div>
+        `;
+        
         detailsSection.querySelector('.character-name').textContent = character.name;
         
         const rarityElement = detailsSection.querySelector('.character-rarity');
