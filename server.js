@@ -37,6 +37,17 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Global error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ msg: err.message || 'An unexpected server error occurred' });
+});
+
+// 404 handler for routes that don't exist
+app.use((req, res) => {
+  res.status(404).json({ msg: 'Route not found' });
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

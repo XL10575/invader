@@ -7,6 +7,11 @@ exports.register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
+    // Check if required fields are provided
+    if (!username || !email || !password) {
+      return res.status(400).json({ msg: 'Please provide all required fields' });
+    }
+
     // Check if user already exists
     let user = await User.findOne({ email });
     if (user) {
@@ -36,16 +41,19 @@ exports.register = async (req, res) => {
 
     jwt.sign(
       payload,
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'space_invaders_secret_token',
       { expiresIn: '7d' },
       (err, token) => {
-        if (err) throw err;
+        if (err) {
+          console.error('JWT error:', err);
+          return res.status(500).json({ msg: 'Error creating authentication token' });
+        }
         res.json({ token });
       }
     );
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Registration error:', err);
+    res.status(500).json({ msg: 'Server error: ' + err.message });
   }
 };
 
@@ -53,6 +61,11 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // Check if required fields are provided
+    if (!email || !password) {
+      return res.status(400).json({ msg: 'Please provide email and password' });
+    }
 
     // Check if user exists
     const user = await User.findOne({ email });
@@ -75,16 +88,19 @@ exports.login = async (req, res) => {
 
     jwt.sign(
       payload,
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'space_invaders_secret_token',
       { expiresIn: '7d' },
       (err, token) => {
-        if (err) throw err;
+        if (err) {
+          console.error('JWT error:', err);
+          return res.status(500).json({ msg: 'Error creating authentication token' });
+        }
         res.json({ token });
       }
     );
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Login error:', err);
+    res.status(500).json({ msg: 'Server error: ' + err.message });
   }
 };
 
@@ -102,8 +118,8 @@ exports.getUserData = async (req, res) => {
     
     res.json(user);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Error fetching user data:', err);
+    res.status(500).json({ msg: 'Server error: ' + err.message });
   }
 };
 
@@ -124,8 +140,8 @@ exports.selectCharacter = async (req, res) => {
     
     res.json({ msg: 'Character selected successfully', selectedCharacter: characterId });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Character selection error:', err);
+    res.status(500).json({ msg: 'Server error: ' + err.message });
   }
 };
 
@@ -143,8 +159,8 @@ exports.updateHighScore = async (req, res) => {
     
     res.json({ highScore: user.highScore });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('High score update error:', err);
+    res.status(500).json({ msg: 'Server error: ' + err.message });
   }
 };
 
@@ -159,7 +175,7 @@ exports.updateCoins = async (req, res) => {
     
     res.json({ coins: user.coins });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Coins update error:', err);
+    res.status(500).json({ msg: 'Server error: ' + err.message });
   }
 }; 
