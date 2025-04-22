@@ -657,8 +657,8 @@ const Game = {
             
             // Skip wall collision for Ghost Bullets ability
             const ghostBullets = this.player.specialAbility.active && 
-                                this.player.character.specialAbility && 
-                                this.player.character.specialAbility.name === "Ghost Bullets";
+                              this.player.character.specialAbility && 
+                              this.player.character.specialAbility.name.toLowerCase().includes("ghost");
             
             // Check collision with defensive walls first (unless using Ghost Bullets)
             if (!ghostBullets) {
@@ -672,10 +672,12 @@ const Game = {
                             // Create explosion particles
                             this.createExplosion(bullet.x, bullet.y, 3);
                             
-                            // Remove bullet
-                            this.bullets.splice(i, 1);
-                            i--;
-                            bulletRemoved = true;
+                            // Remove bullet (unless it's explosive)
+                            if (!bullet.isExplosive) {
+                                this.bullets.splice(i, 1);
+                                i--;
+                                bulletRemoved = true;
+                            }
                             
                             // Remove segment if health depleted
                             if (segment.health <= 0) {
@@ -703,8 +705,53 @@ const Game = {
                     // Create explosion particles
                     this.createExplosion(bullet.x, bullet.y);
                     
+                    // Handle explosive bullets
+                    if (bullet.isExplosive) {
+                        // Create a large explosion effect
+                        this.createExplosion(bullet.x, bullet.y, 30);
+                        
+                        // Damage enemies in the radius
+                        const radius = bullet.explosionRadius || 60;
+                        for (let k = 0; k < this.enemies.length; k++) {
+                            if (k !== j) { // Skip the enemy that was directly hit
+                                const otherEnemy = this.enemies[k];
+                                const dx = otherEnemy.x + otherEnemy.width/2 - bullet.x;
+                                const dy = otherEnemy.y + otherEnemy.height/2 - bullet.y;
+                                const distance = Math.sqrt(dx*dx + dy*dy);
+                                
+                                if (distance < radius) {
+                                    // Apply damage based on distance (more damage closer to center)
+                                    const damageMultiplier = 1 - (distance / radius);
+                                    const explosionDamage = bullet.damage * damageMultiplier;
+                                    otherEnemy.health -= explosionDamage;
+                                    
+                                    // Create smaller explosion at affected enemy
+                                    this.createExplosion(otherEnemy.x + otherEnemy.width/2, 
+                                                        otherEnemy.y + otherEnemy.height/2, 
+                                                        5);
+                                    
+                                    // Check if enemy is destroyed
+                                    if (otherEnemy.health <= 0) {
+                                        this.score += otherEnemy.points;
+                                        document.getElementById('game-score').querySelector('span').textContent = this.score;
+                                        
+                                        this.createExplosion(otherEnemy.x + otherEnemy.width/2, 
+                                                           otherEnemy.y + otherEnemy.height/2, 
+                                                           15);
+                                        this.enemies.splice(k, 1);
+                                        k--;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Remove the explosive bullet after it explodes
+                        this.bullets.splice(i, 1);
+                        i--;
+                        bulletRemoved = true;
+                    } 
                     // Only remove the bullet if not using Ghost Bullets or if it's not a special blast
-                    if (!ghostBullets && (!bullet.ghostBullet && !bullet.isBlast)) {
+                    else if (!ghostBullets && (!bullet.ghostBullet && !bullet.isBlast)) {
                         this.bullets.splice(i, 1);
                         i--;
                         bulletRemoved = true;
@@ -762,10 +809,11 @@ const Game = {
             
             // Enemy bullets vs player
             if (this.isColliding(bullet, this.player)) {
-                // Skip damage if player has Tank Shield active
+                // Skip damage if player has Tank Shield active or any invincibility ability
                 const hasShield = this.player.specialAbility.active && 
-                                  this.player.character.specialAbility && 
-                                  this.player.character.specialAbility.name === "Tank Shield";
+                              this.player.character.specialAbility && 
+                              (this.player.character.specialAbility.name === "Tank Shield" || 
+                               this.player.character.name === "Cappuccino Assassino");
                 
                 if (!hasShield) {
                     this.lives--;
@@ -860,10 +908,39 @@ const Game = {
     
     // Draw bullets
     drawBullets: function() {
-        this.ctx.fillStyle = '#00ffff';
-        
         for (const bullet of this.bullets) {
-            this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            // Check if bullet has custom color
+            if (bullet.color) {
+                this.ctx.fillStyle = bullet.color;
+            } else {
+                this.ctx.fillStyle = '#00ffff';
+            }
+            
+            // Draw different bullet types differently
+            if (bullet.isExplosive) {
+                // Draw explosion-ready bullet (pulsing)
+                const pulseSize = 2 * Math.sin(Date.now() / 100) + 1;
+                
+                // Draw main bullet
+                this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                
+                // Draw pulsing glow around explosive bullet
+                this.ctx.fillStyle = 'rgba(255, 100, 0, 0.3)';
+                this.ctx.fillRect(
+                    bullet.x - pulseSize, 
+                    bullet.y - pulseSize, 
+                    bullet.width + pulseSize * 2, 
+                    bullet.height + pulseSize * 2
+                );
+            } else if (bullet.width > 6) {
+                // Draw larger bullets with rounded corners for Chimpanzini
+                this.ctx.beginPath();
+                this.ctx.roundRect(bullet.x, bullet.y, bullet.width, bullet.height, 3);
+                this.ctx.fill();
+            } else {
+                // Normal bullets
+                this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            }
         }
     },
     
@@ -931,172 +1008,503 @@ const Game = {
         
         const now = Date.now();
         const ability = this.player.character.specialAbility;
+        const characterName = this.player.character.name;
         
-        console.log("Using special ability:", ability.name);
+        console.log("Using special ability for character:", characterName);
         
         // Add a visual effect to show ability activation
         this.createExplosion(this.player.x + this.player.width/2, this.player.y, 5);
         
-        // Normalize ability name to handle case sensitivity
-        const abilityName = ability.name.toLowerCase();
-        
-        // Implement special ability based on character
-        if (abilityName.includes("dash") || abilityName.includes("dodge")) {
-            // Double speed for 3 seconds
-            const originalSpeed = this.player.speed;
-            this.player.speed *= 2;
+        // Implement specific character abilities
+        if (characterName === "Brr Brr Patapim") {
+            // Regenerate all defensive walls
+            console.log("Activating wall regeneration");
             this.player.specialAbility.active = true;
-            this.player.specialAbility.duration = 3000;
             
-            // Create visual effect
-            this.createExplosion(this.player.x + this.player.width/2, this.player.y, 15);
+            // Remove existing walls
+            this.defensiveWalls = [];
             
-            setTimeout(() => {
-                this.player.speed = originalSpeed;
-                this.player.specialAbility.active = false;
-            }, 3000);
-        }
-        else if (abilityName.includes("blast") || abilityName.includes("dingle")) {
-            // Fire a powerful shot that destroys enemies in a line
-            const blast = {
-                x: this.player.x + this.player.width / 2 - 5,
-                y: this.player.y,
-                width: 10,
-                height: 20,
-                speed: 15,
-                damage: 10,
-                isBlast: true
-            };
-            this.bullets.push(blast);
-            this.player.specialAbility.active = true;
+            // Create new walls
+            this.createDefensiveWalls();
+            
+            // Create a visual effect
+            for (const wall of this.defensiveWalls) {
+                this.createExplosion(wall.x + wall.width/2, wall.y + wall.height/2, 15);
+            }
             
             // Reset after a short duration
             setTimeout(() => {
                 this.player.specialAbility.active = false;
             }, 1000);
         }
-        else if (abilityName.includes("bomb") || abilityName.includes("carpet")) {
-            // Drop multiple bombs that destroy all enemies below you
+        else if (characterName === "Chimpanzini Bananini") {
+            // Shoot larger bullets
+            console.log("Activating larger bullets");
             this.player.specialAbility.active = true;
             
-            // Create multiple blasts
-            for (let i = 0; i < 7; i++) {
-                setTimeout(() => {
-                    const bombX = this.player.x + (i % 3 - 1) * this.player.width;
-                    const bomb = {
-                        x: bombX,
-                        y: this.player.y,
-                        width: 8,
-                        height: 15,
-                        speed: 12,
-                        damage: 5,
-                        isBlast: true
-                    };
-                    this.bullets.push(bomb);
-                }, i * 150);
-            }
+            // Store original fire method
+            const originalFireBullet = this.fireBullet;
             
-            // Reset after all bombs are dropped
-            setTimeout(() => {
-                this.player.specialAbility.active = false;
-            }, 1500);
-        }
-        else if (abilityName.includes("shield") || abilityName.includes("tank")) {
-            // Temporary invincibility
-            this.player.specialAbility.active = true;
-            this.player.specialAbility.duration = 5000;
-            
-            // Create shield effect
-            const shieldInterval = setInterval(() => {
-                if (this.player.specialAbility.active) {
-                    this.createExplosion(
-                        this.player.x + this.player.width/2, 
-                        this.player.y + this.player.height/2, 
-                        3
-                    );
-                } else {
-                    clearInterval(shieldInterval);
+            // Replace with larger bullets
+            this.fireBullet = function() {
+                const now = Date.now();
+                
+                // Check fire rate
+                if (now - this.player.lastFired < this.player.fireRate) {
+                    return;
                 }
-            }, 200);
+                
+                this.player.lastFired = now;
+                
+                // Create a larger bullet
+                const bullet = {
+                    x: this.player.x + this.player.width / 2 - 6, // Centered wider bullet
+                    y: this.player.y,
+                    width: 12, // 3x wider
+                    height: 15, // 1.5x taller
+                    speed: 10,
+                    damage: this.player.damage * 1.5 // More damage
+                };
+                
+                this.bullets.push(bullet);
+                
+                // Visual feedback
+                this.createExplosion(bullet.x + bullet.width/2, bullet.y, 2);
+            };
             
+            // Reset after 10 seconds
             setTimeout(() => {
-                this.player.specialAbility.active = false;
-            }, 5000);
-        }
-        else if (abilityName.includes("ghost") || abilityName.includes("bullet")) {
-            // Next shots pass through walls and enemies
-            this.player.specialAbility.active = true;
-            this.player.specialAbility.duration = 10000;
-            
-            // Create ghost effect
-            const ghostInterval = setInterval(() => {
-                if (this.player.specialAbility.active) {
-                    this.createGhostEffect();
-                } else {
-                    clearInterval(ghostInterval);
-                }
-            }, 300);
-            
-            setTimeout(() => {
+                this.fireBullet = originalFireBullet;
                 this.player.specialAbility.active = false;
             }, 10000);
         }
-        else if (abilityName.includes("bat") || abilityName.includes("swing")) {
-            // Reflect enemy bullets for a short time
+        else if (characterName === "Bombombini Gusini") {
+            // Next bullet explodes and destroys enemies in 3x3 area
+            console.log("Activating explosive bullet");
             this.player.specialAbility.active = true;
-            this.player.specialAbility.duration = 3000;
             
-            // Reflect all enemy bullets
-            const reflectInterval = setInterval(() => {
+            // Store original fire method
+            const originalFireBullet = this.fireBullet;
+            
+            // Flag to track if explosive bullet has been fired
+            let explosiveBulletFired = false;
+            
+            // Replace with explosive bullet
+            this.fireBullet = function() {
+                if (explosiveBulletFired) {
+                    // Reset to original after one shot
+                    this.fireBullet = originalFireBullet;
+                    this.fireBullet(); // Fire normally
+                    return;
+                }
+                
+                const now = Date.now();
+                
+                // Check fire rate
+                if (now - this.player.lastFired < this.player.fireRate) {
+                    return;
+                }
+                
+                this.player.lastFired = now;
+                
+                // Create an explosive bullet
+                const bullet = {
+                    x: this.player.x + this.player.width / 2 - 4,
+                    y: this.player.y,
+                    width: 8,
+                    height: 12,
+                    speed: 12,
+                    damage: this.player.damage * 2,
+                    isExplosive: true,
+                    explosionRadius: 60 // 3x3 grid approximately
+                };
+                
+                // Add special coloring
+                bullet.color = '#ff5500';
+                
+                this.bullets.push(bullet);
+                explosiveBulletFired = true;
+                
+                // Set a timeout to deactivate the ability
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 1000);
+            };
+            
+            // If not used in 10 seconds, revert
+            setTimeout(() => {
+                if (!explosiveBulletFired) {
+                    this.fireBullet = originalFireBullet;
+                    this.player.specialAbility.active = false;
+                }
+            }, 10000);
+        }
+        else if (characterName === "Cappuccino Assassino") {
+            // Double bullet damage for 10 seconds
+            console.log("Activating double damage");
+            this.player.specialAbility.active = true;
+            
+            // Store original damage
+            const originalDamage = this.player.damage;
+            
+            // Double damage
+            this.player.damage *= 2;
+            
+            // Create a visual effect
+            const damageInterval = setInterval(() => {
                 if (this.player.specialAbility.active) {
-                    // Reflect any enemy bullets near the player
-                    for (let i = 0; i < this.enemyBullets.length; i++) {
-                        const bullet = this.enemyBullets[i];
-                        
-                        // Check if bullet is within reflection range
-                        if (Math.abs(bullet.y - this.player.y) < 50 &&
-                            Math.abs(bullet.x - this.player.x) < this.player.width * 2) {
-                            
-                            // Remove enemy bullet
-                            this.enemyBullets.splice(i, 1);
-                            i--;
-                            
-                            // Create a reflected bullet
-                            const reflected = {
-                                x: bullet.x,
-                                y: bullet.y,
-                                width: bullet.width,
-                                height: bullet.height,
-                                speed: bullet.speed + 2,
-                                damage: 2
+                    // Create damage aura effect
+                    for (let i = 0; i < 2; i++) {
+                        const particle = {
+                            x: this.player.x + Math.random() * this.player.width,
+                            y: this.player.y + Math.random() * this.player.height/2,
+                            vx: (Math.random() - 0.5) * 2,
+                            vy: -Math.random() * 2 - 1,
+                            radius: Math.random() * 2 + 1,
+                            color: 'rgba(255, 0, 0, 0.7)',
+                            alpha: 0.7
+                        };
+                        this.particles.push(particle);
+                    }
+                } else {
+                    clearInterval(damageInterval);
+                }
+            }, 200);
+            
+            // Reset after 10 seconds
+            setTimeout(() => {
+                this.player.damage = originalDamage;
+                this.player.specialAbility.active = false;
+            }, 10000);
+        }
+        else if (characterName === "Trippi Troppi") {
+            // Slow enemy movement for 5 seconds
+            console.log("Activating enemy slowdown");
+            this.player.specialAbility.active = true;
+            
+            // Store original direction value
+            const originalDirection = this.enemyDirection;
+            
+            // Slow enemies by reducing the direction multiplier
+            if (this.enemyDirection > 0) {
+                this.enemyDirection = 0.2;
+            } else {
+                this.enemyDirection = -0.2;
+            }
+            
+            // Create slow effect particles
+            const slowInterval = setInterval(() => {
+                if (this.player.specialAbility.active) {
+                    // Create slow-mo effect across all enemies
+                    for (const enemy of this.enemies) {
+                        if (Math.random() > 0.7) {
+                            const particle = {
+                                x: enemy.x + Math.random() * enemy.width,
+                                y: enemy.y + Math.random() * enemy.height,
+                                vx: 0,
+                                vy: Math.random() * 0.5,
+                                radius: Math.random() * 2 + 1,
+                                color: 'rgba(0, 0, 255, 0.5)',
+                                alpha: 0.5
                             };
-                            
-                            this.bullets.push(reflected);
-                            this.createExplosion(bullet.x, bullet.y, 2);
+                            this.particles.push(particle);
                         }
                     }
                 } else {
-                    clearInterval(reflectInterval);
+                    clearInterval(slowInterval);
+                }
+            }, 200);
+            
+            // Reset after 5 seconds
+            setTimeout(() => {
+                // Restore direction sign but keep current magnitude
+                if (originalDirection > 0) {
+                    this.enemyDirection = Math.abs(this.enemyDirection);
+                } else {
+                    this.enemyDirection = -Math.abs(this.enemyDirection);
+                }
+                this.player.specialAbility.active = false;
+            }, 5000);
+        }
+        else if (characterName === "Frigo Camelo") {
+            // Freeze all enemies for 2 seconds
+            console.log("Activating enemy freeze");
+            this.player.specialAbility.active = true;
+            
+            // Store current enemy positions
+            const frozenEnemies = this.enemies.map(enemy => ({
+                x: enemy.x,
+                y: enemy.y,
+                origX: enemy.x,
+                origY: enemy.y
+            }));
+            
+            // Store original update method
+            const originalUpdateEnemies = this.updateEnemies;
+            
+            // Replace with freeze method
+            this.updateEnemies = function() {
+                // Don't update positions while frozen
+                // Just keep enemies at their positions
+                for (let i = 0; i < this.enemies.length && i < frozenEnemies.length; i++) {
+                    // Keep position frozen but allow slight visual jitter
+                    this.enemies[i].x = frozenEnemies[i].origX + (Math.random() - 0.5);
+                    this.enemies[i].y = frozenEnemies[i].origY + (Math.random() - 0.5);
+                }
+            };
+            
+            // Create freeze effect
+            const freezeInterval = setInterval(() => {
+                if (this.player.specialAbility.active) {
+                    // Create ice particles for all enemies
+                    for (const enemy of this.enemies) {
+                        if (Math.random() > 0.7) {
+                            const particle = {
+                                x: enemy.x + Math.random() * enemy.width,
+                                y: enemy.y + Math.random() * enemy.height,
+                                vx: (Math.random() - 0.5) * 1,
+                                vy: -Math.random() * 1,
+                                radius: Math.random() * 2 + 1,
+                                color: 'rgba(200, 240, 255, 0.8)',
+                                alpha: 0.8
+                            };
+                            this.particles.push(particle);
+                        }
+                    }
+                } else {
+                    clearInterval(freezeInterval);
                 }
             }, 100);
             
+            // Reset after 2 seconds
             setTimeout(() => {
+                this.updateEnemies = originalUpdateEnemies;
                 this.player.specialAbility.active = false;
-            }, 3000);
+            }, 2000);
         }
-        else {
-            // Generic boost for any other type of ability
-            console.log("Using generic ability boost for:", ability.name);
-            const originalDamage = this.player.damage;
-            this.player.speed += 2;
-            this.player.damage += 1;
+        else if (characterName === "La Vaca Saturno") {
+            // Destroy enemies in two columns
+            console.log("Activating column destruction");
             this.player.specialAbility.active = true;
-            this.player.specialAbility.duration = 3000;
+            
+            // Determine player's current column
+            const playerCenterX = this.player.x + this.player.width / 2;
+            const gameWidth = this.width;
+            
+            // Calculate columns (divide into 10 columns)
+            const columnWidth = gameWidth / 10;
+            const playerColumn = Math.floor(playerCenterX / columnWidth);
+            
+            // Choose columns to destroy (current column and one adjacent)
+            const columnsToDestroy = [playerColumn];
+            
+            // Add one adjacent column
+            if (playerColumn < 9) {
+                columnsToDestroy.push(playerColumn + 1);
+            } else {
+                columnsToDestroy.push(playerColumn - 1);
+            }
+            
+            // Destroy enemies in those columns
+            let destroyedCount = 0;
+            for (let i = this.enemies.length - 1; i >= 0; i--) {
+                const enemy = this.enemies[i];
+                const enemyCenterX = enemy.x + enemy.width / 2;
+                const enemyColumn = Math.floor(enemyCenterX / columnWidth);
+                
+                if (columnsToDestroy.includes(enemyColumn)) {
+                    // Create explosion effect
+                    this.createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, 20);
+                    
+                    // Add score
+                    this.score += enemy.points;
+                    document.getElementById('game-score').querySelector('span').textContent = this.score;
+                    
+                    // Remove enemy
+                    this.enemies.splice(i, 1);
+                    destroyedCount++;
+                }
+            }
+            
+            // Visual indicators for destroyed columns
+            for (const col of columnsToDestroy) {
+                const colX = col * columnWidth;
+                for (let y = 0; y < this.height; y += 20) {
+                    if (Math.random() > 0.7) {
+                        this.createExplosion(colX + columnWidth/2, y, 3);
+                    }
+                }
+            }
+            
+            console.log(`Destroyed ${destroyedCount} enemies in columns`);
+            
+            // Reset after a short duration
             setTimeout(() => {
-                this.player.speed -= 2;
-                this.player.damage = originalDamage;
                 this.player.specialAbility.active = false;
-            }, 3000);
+            }, 1000);
+        }
+        // Handle other abilities using substring matching as fallback
+        else {
+            // Normalize ability name to handle case sensitivity
+            const abilityName = ability.name.toLowerCase();
+            
+            if (abilityName.includes("dash") || abilityName.includes("dodge")) {
+                // Double speed for 3 seconds
+                const originalSpeed = this.player.speed;
+                this.player.speed *= 2;
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 3000;
+                
+                // Create visual effect
+                this.createExplosion(this.player.x + this.player.width/2, this.player.y, 15);
+                
+                setTimeout(() => {
+                    this.player.speed = originalSpeed;
+                    this.player.specialAbility.active = false;
+                }, 3000);
+            }
+            else if (abilityName.includes("blast") || abilityName.includes("dingle")) {
+                // Fire a powerful shot that destroys enemies in a line
+                const blast = {
+                    x: this.player.x + this.player.width / 2 - 5,
+                    y: this.player.y,
+                    width: 10,
+                    height: 20,
+                    speed: 15,
+                    damage: 10,
+                    isBlast: true
+                };
+                this.bullets.push(blast);
+                this.player.specialAbility.active = true;
+                
+                // Reset after a short duration
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 1000);
+            }
+            else if (abilityName.includes("bomb") || abilityName.includes("carpet")) {
+                // Drop multiple bombs that destroy all enemies below you
+                this.player.specialAbility.active = true;
+                
+                // Create multiple blasts
+                for (let i = 0; i < 7; i++) {
+                    setTimeout(() => {
+                        const bombX = this.player.x + (i % 3 - 1) * this.player.width;
+                        const bomb = {
+                            x: bombX,
+                            y: this.player.y,
+                            width: 8,
+                            height: 15,
+                            speed: 12,
+                            damage: 5,
+                            isBlast: true
+                        };
+                        this.bullets.push(bomb);
+                    }, i * 150);
+                }
+                
+                // Reset after all bombs are dropped
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 1500);
+            }
+            else if (abilityName.includes("shield") || abilityName.includes("tank")) {
+                // Temporary invincibility
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 5000;
+                
+                // Create shield effect
+                const shieldInterval = setInterval(() => {
+                    if (this.player.specialAbility.active) {
+                        this.createExplosion(
+                            this.player.x + this.player.width/2, 
+                            this.player.y + this.player.height/2, 
+                            3
+                        );
+                    } else {
+                        clearInterval(shieldInterval);
+                    }
+                }, 200);
+                
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 5000);
+            }
+            else if (abilityName.includes("ghost") || abilityName.includes("bullet")) {
+                // Next shots pass through walls and enemies
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 10000;
+                
+                // Create ghost effect
+                const ghostInterval = setInterval(() => {
+                    if (this.player.specialAbility.active) {
+                        this.createGhostEffect();
+                    } else {
+                        clearInterval(ghostInterval);
+                    }
+                }, 300);
+                
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 10000);
+            }
+            else if (abilityName.includes("bat") || abilityName.includes("swing")) {
+                // Reflect enemy bullets for a short time
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 3000;
+                
+                // Reflect all enemy bullets
+                const reflectInterval = setInterval(() => {
+                    if (this.player.specialAbility.active) {
+                        // Reflect any enemy bullets near the player
+                        for (let i = 0; i < this.enemyBullets.length; i++) {
+                            const bullet = this.enemyBullets[i];
+                            
+                            // Check if bullet is within reflection range
+                            if (Math.abs(bullet.y - this.player.y) < 50 &&
+                                Math.abs(bullet.x - this.player.x) < this.player.width * 2) {
+                                
+                                // Remove enemy bullet
+                                this.enemyBullets.splice(i, 1);
+                                i--;
+                                
+                                // Create a reflected bullet
+                                const reflected = {
+                                    x: bullet.x,
+                                    y: bullet.y,
+                                    width: bullet.width,
+                                    height: bullet.height,
+                                    speed: bullet.speed + 2,
+                                    damage: 2
+                                };
+                                
+                                this.bullets.push(reflected);
+                                this.createExplosion(bullet.x, bullet.y, 2);
+                            }
+                        }
+                    } else {
+                        clearInterval(reflectInterval);
+                    }
+                }, 100);
+                
+                setTimeout(() => {
+                    this.player.specialAbility.active = false;
+                }, 3000);
+            }
+            else {
+                // Generic boost for any other type of ability
+                console.log("Using generic ability boost for:", ability.name);
+                const originalDamage = this.player.damage;
+                this.player.speed += 2;
+                this.player.damage += 1;
+                this.player.specialAbility.active = true;
+                this.player.specialAbility.duration = 3000;
+                setTimeout(() => {
+                    this.player.speed -= 2;
+                    this.player.damage = originalDamage;
+                    this.player.specialAbility.active = false;
+                }, 3000);
+            }
         }
         
         // Set cooldown
