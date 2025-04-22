@@ -46,92 +46,118 @@ const Game = {
         this.canvas.height = this.height;
         
         this.setupEventListeners();
-        
-        this.resetGame();
     },
     
     // Setup event listeners
     setupEventListeners: function() {
-        // Start game button
+        // Game navigation buttons
         document.getElementById('start-game').addEventListener('click', () => {
-            document.querySelectorAll('.section').forEach(section => section.classList.add('hide'));
-            document.getElementById('game-section').classList.remove('hide');
-            
+            this.showGameSection();
             this.resetGame();
-            this.startGameLoop();
+            this.startGame();
         });
         
-        // Pause button
         document.getElementById('pause-btn').addEventListener('click', () => {
-            document.getElementById('pause-menu').classList.remove('hide');
-            this.isGameOver = true; // Pause the game by stopping the loop
+            this.togglePause();
         });
         
-        // Resume button
         document.getElementById('resume-btn').addEventListener('click', () => {
-            document.getElementById('pause-menu').classList.add('hide');
-            this.isGameOver = false; // Resume the game
-            this.gameLoop();
+            this.togglePause();
         });
         
-        // Quit button
         document.getElementById('quit-btn').addEventListener('click', () => {
-            document.getElementById('pause-menu').classList.add('hide');
-            document.getElementById('game-section').classList.add('hide');
-            Auth.showMainMenu();
+            this.quitGame();
         });
         
         // Instructions button
         document.getElementById('instructions-btn').addEventListener('click', () => {
             document.getElementById('instructions-modal').classList.remove('hide');
-            this.isGameOver = true; // Pause while showing instructions
+            this.togglePause();
         });
         
         // Close instructions button
         document.getElementById('close-instructions').addEventListener('click', () => {
             document.getElementById('instructions-modal').classList.add('hide');
-            
-            // Only resume if we're not in the pause menu
             if (document.getElementById('pause-menu').classList.contains('hide')) {
-                this.isGameOver = false;
-                this.gameLoop();
+                this.togglePause();
             }
         });
         
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') {
-                this.player.moveLeft = true;
-            } else if (e.key === 'ArrowRight') {
-                this.player.moveRight = true;
-            } else if (e.key === ' ' || e.key === 'Space') {
-                this.fireBullet();
-            } else if (e.key === 'Shift') {
-                this.useSpecialAbility();
-            } else if (e.key === 'Escape') {
-                // Toggle pause menu
-                if (document.getElementById('pause-menu').classList.contains('hide') && 
-                    document.getElementById('instructions-modal').classList.contains('hide')) {
-                    document.getElementById('pause-menu').classList.remove('hide');
-                    this.isGameOver = true;
-                } else if (!document.getElementById('pause-menu').classList.contains('hide')) {
-                    document.getElementById('pause-menu').classList.add('hide');
-                    this.isGameOver = false;
-                    this.gameLoop();
+        // Game over buttons
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            document.getElementById('game-over-section').classList.add('hide');
+            document.getElementById('game-section').classList.remove('hide');
+            this.resetGame();
+            this.startGame();
+        });
+        
+        document.getElementById('menu-btn').addEventListener('click', () => {
+            document.getElementById('game-over-section').classList.add('hide');
+            Auth.showMainMenu();
+        });
+        
+        // Keyboard events
+        window.addEventListener('keydown', (e) => {
+            if (this.isRunning && !this.isPaused && !this.gameOver) {
+                // Move left with left arrow or A
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    this.player.moveLeft = true;
+                }
+                
+                // Move right with right arrow or D
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    this.player.moveRight = true;
+                }
+                
+                // Fire with space
+                if (e.key === ' ') {
+                    this.fireBullet();
+                }
+                
+                // Use special ability with Shift
+                if ((e.key === 'Shift' || e.key === 'ShiftLeft' || e.key === 'ShiftRight') && 
+                    this.player && this.player.character && this.player.character.specialAbility) {
+                    this.useSpecialAbility();
                 }
             }
+            
+            // Pause with Escape
+            if (e.key === 'Escape' && this.isRunning && !this.gameOver) {
+                this.togglePause();
+            }
         });
         
-        document.addEventListener('keyup', (e) => {
-            if (e.key === 'ArrowLeft') {
-                this.player.moveLeft = false;
-            } else if (e.key === 'ArrowRight') {
-                this.player.moveRight = false;
+        window.addEventListener('keyup', (e) => {
+            if (this.isRunning) {
+                // Stop moving left
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    this.player.moveLeft = false;
+                }
+                
+                // Stop moving right
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    this.player.moveRight = false;
+                }
             }
         });
     },
     
+    // Show game section
+    showGameSection: function() {
+        document.querySelectorAll('.section').forEach(section => section.classList.add('hide'));
+        document.getElementById('game-section').classList.remove('hide');
+        
+        // Hide pause and game over menus
+        document.getElementById('pause-menu').classList.add('hide');
+        document.getElementById('game-over-section').classList.add('hide');
+    },
+    
     // Reset game
     resetGame: function() {
+        this.isRunning = false;
+        this.isPaused = false;
+        this.gameOver = false;
+        
         this.score = 0;
         this.level = 1;
         this.coinsEarned = 0; // Track coins earned in this game session
@@ -145,33 +171,16 @@ const Game = {
         this.particles = [];
         this.floatingTexts = [];
         
-        this.createPlayer();
-        this.createEnemies();
-        this.createDefensiveWalls();
-        
         // Reset UI
         document.getElementById('game-score').querySelector('span').textContent = this.score;
         document.getElementById('game-level').querySelector('span').textContent = this.level;
         document.getElementById('game-coins').querySelector('span').textContent = this.startingPlayerCoins;
         document.getElementById('game-lives').querySelector('span').textContent = this.lives;
         
-        // Create character display if it doesn't exist
-        if (!this.characterDisplay) {
-            this.createCharacterDisplay();
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
         }
-        
-        // Update character display
-        this.updateCharacterDisplay();
-    },
-    
-    // Show game section
-    showGameSection: function() {
-        document.querySelectorAll('.section').forEach(section => section.classList.add('hide'));
-        document.getElementById('game-section').classList.remove('hide');
-        
-        // Hide pause and game over menus
-        document.getElementById('pause-menu').classList.add('hide');
-        document.getElementById('game-over').classList.add('hide');
     },
     
     // Start the game
@@ -182,31 +191,19 @@ const Game = {
         this.isPaused = false;
         this.gameOver = false;
         
-        // Initialize game state
-        this.score = 0;
-        this.lives = 3;
-        this.level = 1;
         this.startTime = Date.now();
         
-        // Create player
         this.createPlayer();
+        this.createEnemies();
+        this.createDefensiveWalls();
+        
+        // Create character display if it doesn't exist
+        if (!this.characterDisplay) {
+            this.createCharacterDisplay();
+        }
         
         // Update character display
         this.updateCharacterDisplay();
-        
-        // Create defensive walls
-        this.createDefensiveWalls();
-        
-        // Create enemies
-        this.createEnemies();
-        
-        // Update score display
-        document.getElementById('game-score').querySelector('span').textContent = this.score;
-        document.getElementById('game-lives').querySelector('span').textContent = this.lives;
-        
-        // Make sure game over menu is hidden
-        document.getElementById('game-over').classList.add('hide');
-        document.getElementById('pause-menu').classList.add('hide');
         
         // Start game loop
         this.gameLoop();
@@ -232,7 +229,44 @@ const Game = {
         Auth.showMainMenu();
     },
     
-    // Game over
+    // Game loop
+    gameLoop: function() {
+        if (!this.isRunning || this.isPaused) return;
+        
+        this.update();
+        this.draw();
+        
+        this.animationId = requestAnimationFrame(() => this.gameLoop());
+    },
+    
+    // Update game state
+    update: function() {
+        this.updatePlayer();
+        this.updateBullets();
+        this.updateEnemyBullets();
+        this.updateEnemies();
+        this.updateParticles();
+        this.updateFloatingTexts();
+        this.checkCollisions();
+        this.updateAbilityCooldown();
+    },
+    
+    // Draw game
+    draw: function() {
+        // Clear canvas
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+        
+        this.drawDefensiveWalls();
+        this.drawBullets();
+        this.drawEnemyBullets();
+        this.drawEnemies();
+        this.drawPlayer();
+        this.drawParticles();
+        this.drawFloatingTexts();
+    },
+    
+    // Handle game over
     handleGameOver: function() {
         this.isRunning = false;
         this.gameOver = true;
@@ -240,420 +274,27 @@ const Game = {
         // Calculate play time in seconds
         this.playTime = Math.floor((Date.now() - this.startTime) / 1000);
         
-        // Show game over menu
-        document.getElementById('game-over').classList.remove('hide');
-        document.getElementById('final-score').querySelector('span').textContent = this.score;
+        // Update high score
+        if (Auth.currentUser && this.score > Auth.currentUser.highScore) {
+            Auth.updateHighScore(this.score);
+        }
         
-        // Calculate coins earned (1 coin per 100 points)
-        const coinsEarned = Math.floor(this.score / 100);
-        document.getElementById('coins-earned').querySelector('span').textContent = coinsEarned;
+        // Update player coins with earned coins
+        if (Auth.currentUser) {
+            const newCoinTotal = Auth.currentUser.coins + this.coinsEarned;
+            Auth.updateCoins(newCoinTotal);
+        }
         
-        // Submit score to server
-        this.submitScore(this.score, this.level, this.playTime);
+        // Show game over screen
+        document.getElementById('game-over-score').querySelector('span').textContent = this.score;
+        document.getElementById('game-over-coins').querySelector('span').textContent = this.coinsEarned;
+        document.getElementById('game-over-level').querySelector('span').textContent = this.level;
+        document.getElementById('game-section').classList.add('hide');
+        document.getElementById('game-over-section').classList.remove('hide');
         
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
-        }
-    },
-    
-    // Submit score to server
-    submitScore: async function(score, level, playTime) {
-        try {
-            const result = await api.submitScore({ score, level, playTime });
-            Auth.updateCoins(result.coins);
-            Auth.updateHighScore(result.highScore);
-        } catch (error) {
-            console.error('Error submitting score:', error);
-        }
-    },
-    
-    // Create player
-    createPlayer: function() {
-        // Get selected character or use default if none selected
-        let character = Auth.currentUser.selectedCharacter;
-        
-        // If no character is selected, use the default
-        if (!character) {
-            const defaultChar = characterData.find(char => char._id === defaultCharacters[0]);
-            if (defaultChar) {
-                character = defaultChar;
-                // Update Auth.currentUser
-                if (Auth.currentUser) {
-                    Auth.currentUser.selectedCharacter = character;
-                }
-                console.log("Using default character:", character.name);
-            } else {
-                // Fallback to first character if default not found
-                character = characterData[0];
-                console.log("Using first character as fallback:", character.name);
-            }
-        }
-        
-        // Ensure character has stats
-        const stats = character.stats || {
-            speed: 5,
-            fireRate: 5,
-            health: 3,
-            damage: 1
-        };
-        
-        // Debug the character's special ability
-        if (character.specialAbility) {
-            console.log("Character has special ability:", character.specialAbility.name);
-        } else {
-            console.log("Character missing special ability!");
-        }
-        
-        this.player = {
-            x: this.width / 2 - 25,
-            y: this.height - 60,
-            width: 50,
-            height: 30,
-            speed: 3 + stats.speed / 3,
-            fireRate: 300 - stats.fireRate * 20, // ms between shots
-            lastFired: 0,
-            damage: stats.damage,
-            health: stats.health,
-            moveLeft: false,
-            moveRight: false,
-            character: character,
-            specialAbility: {
-                active: false,
-                cooldown: false,
-                lastUsed: 0,
-                duration: 0,
-                cooldownTime: character.specialAbility ? character.specialAbility.cooldown * 1000 : 10000
-            },
-            // Store the image for the player
-            image: new Image()
-        };
-        
-        // Set the player image - ensure it's an absolute path
-        if (character.image) {
-            // Remove the leading slash if working locally (needed for proper file path resolution)
-            const imagePath = character.image.startsWith('/') ? 
-                character.image.substring(1) : character.image;
-            
-            console.log("Setting player image:", imagePath);
-            
-            // Check if this is a data URL (fallback already applied)
-            if (character.image.startsWith('data:image')) {
-                this.player.image.src = character.image;
-                console.log("Using pre-generated fallback image");
-            } else {
-                // Try to load the regular image
-                this.player.image.src = imagePath;
-                
-                // Add an error handler to log any image loading issues
-                this.player.image.onerror = () => {
-                    console.error(`Failed to load player image: ${imagePath}`);
-                    // Create a fallback image with the character's initial
-                    this.createFallbackImage(character);
-                };
-                
-                // Pre-load the image to trigger the error handler immediately if needed
-                const preloadImg = new Image();
-                preloadImg.onload = () => {
-                    console.log(`✅ Successfully loaded player image for ${character.name}`);
-                };
-                preloadImg.onerror = () => {
-                    console.error(`❌ Failed to preload image: ${imagePath}`);
-                    this.createFallbackImage(character);
-                };
-                preloadImg.src = imagePath;
-            }
-        }
-        
-        // Update lives based on character health
-        this.lives = this.player.health;
-        document.getElementById('game-lives').querySelector('span').textContent = this.lives;
-    },
-    
-    // Create a fallback image for characters when their image fails to load
-    createFallbackImage: function(character) {
-        console.log("Creating fallback image for:", character.name);
-        
-        // Create a canvas element
-        const canvas = document.createElement('canvas');
-        canvas.width = 100;
-        canvas.height = 100;
-        const ctx = canvas.getContext('2d');
-        
-        // Color based on rarity
-        const colors = {
-            common: '#aaaaaa',
-            rare: '#3498db',
-            epic: '#9b59b6',
-            legendary: '#f1c40f'
-        };
-        
-        // Set the color based on rarity
-        const color = colors[character.rarity] || '#ffffff';
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw character shape
-        ctx.fillStyle = color;
-        ctx.fillRect(10, 10, 80, 80);
-        
-        // Draw character initial
-        ctx.fillStyle = '#000000';
-        ctx.font = '40px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(character.name.charAt(0), 50, 50);
-        
-        // Set the character image to the canvas data URL
-        if (this.player && this.player.image) {
-            this.player.image.src = canvas.toDataURL('image/png');
-        }
-    },
-    
-    // Create enemies
-    createEnemies: function() {
-        this.enemies = [];
-        this.enemyDirection = 1; // Reset direction when creating new enemies
-        
-        const rows = 5;
-        const cols = 10;
-        const enemyWidth = 40;
-        const enemyHeight = 30;
-        const padding = 20;
-        
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const enemy = {
-                    x: col * (enemyWidth + padding) + padding,
-                    y: row * (enemyHeight + padding) + padding + 30,
-                    width: enemyWidth,
-                    height: enemyHeight,
-                    health: row === 0 ? 3 : row < 3 ? 2 : 1, // First row tougher
-                    points: row === 0 ? 30 : row < 3 ? 20 : 10, // First row worth more points
-                    color: row === 0 ? '#ff0000' : row < 3 ? '#ff7700' : '#ffff00'
-                };
-                
-                this.enemies.push(enemy);
-            }
-        }
-    },
-
-    // Create defensive walls
-    createDefensiveWalls: function() {
-        this.defensiveWalls = [];
-        
-        const wallWidth = 60;
-        const wallHeight = 40;
-        const wallCount = 4;
-        const gap = (this.width - (wallCount * wallWidth)) / (wallCount + 1);
-        
-        for (let i = 0; i < wallCount; i++) {
-            const wall = {
-                x: gap + i * (wallWidth + gap),
-                y: this.height - 120,
-                width: wallWidth,
-                height: wallHeight,
-                health: 20,
-                segments: []
-            };
-            
-            // Create wall segments (smaller blocks that make up the wall)
-            const segmentSize = 10;
-            const segmentRows = wallHeight / segmentSize;
-            const segmentCols = wallWidth / segmentSize;
-            
-            for (let row = 0; row < segmentRows; row++) {
-                for (let col = 0; col < segmentCols; col++) {
-                    // Create an arch-like shape for the wall
-                    if (row === 0 && (col === 0 || col === segmentCols - 1)) continue;
-                    if (row === 1 && (col === 0 || col === segmentCols - 1)) continue;
-                    
-                    const segment = {
-                        x: wall.x + col * segmentSize,
-                        y: wall.y + row * segmentSize,
-                        width: segmentSize,
-                        height: segmentSize,
-                        health: 2
-                    };
-                    
-                    wall.segments.push(segment);
-                }
-            }
-            
-            this.defensiveWalls.push(wall);
-        }
-    },
-    
-    // Fire bullet
-    fireBullet: function() {
-        const now = Date.now();
-        
-        // Check fire rate
-        if (now - this.player.lastFired < this.player.fireRate) {
-            return;
-        }
-        
-        this.player.lastFired = now;
-        
-        const bullet = {
-            x: this.player.x + this.player.width / 2 - 2,
-            y: this.player.y,
-            width: 4,
-            height: 10,
-            speed: 10,
-            damage: this.player.damage
-        };
-        
-        this.bullets.push(bullet);
-    },
-    
-    // Enemy fire bullet
-    enemyFireBullet: function(enemy) {
-        // Random chance to fire based on level, reduced to make it fairer
-        if (Math.random() < 0.0005 * this.level) {
-            const bullet = {
-                x: enemy.x + enemy.width / 2 - 2,
-                y: enemy.y + enemy.height,
-                width: 4,
-                height: 10,
-                speed: 2 + this.level * 0.5 // Reduced enemy bullet speed
-            };
-            
-            this.enemyBullets.push(bullet);
-        }
-    },
-    
-    // Game loop
-    gameLoop: function() {
-        if (!this.isRunning || this.isPaused) return;
-        
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        
-        // Update game objects
-        this.updatePlayer();
-        this.updateBullets();
-        this.updateEnemies();
-        this.updateEnemyBullets();
-        this.updateParticles();
-        
-        // Update ability cooldown display
-        this.updateAbilityCooldown();
-        
-        // Check collisions
-        this.checkCollisions();
-        
-        // Draw everything
-        this.drawPlayer();
-        this.drawDefensiveWalls();
-        this.drawBullets();
-        this.drawEnemies();
-        this.drawEnemyBullets();
-        this.drawParticles();
-        
-        // Continue the loop
-        this.animationId = requestAnimationFrame(() => this.gameLoop());
-    },
-    
-    // Update player
-    updatePlayer: function() {
-        // Move player
-        if (this.player.moveLeft) {
-            this.player.x -= this.player.speed;
-        }
-        
-        if (this.player.moveRight) {
-            this.player.x += this.player.speed;
-        }
-        
-        // Keep player within bounds
-        if (this.player.x < 0) {
-            this.player.x = 0;
-        } else if (this.player.x + this.player.width > this.width) {
-            this.player.x = this.width - this.player.width;
-        }
-    },
-    
-    // Update bullets
-    updateBullets: function() {
-        for (let i = 0; i < this.bullets.length; i++) {
-            const bullet = this.bullets[i];
-            bullet.y -= bullet.speed;
-            
-            // Remove bullets that go off-screen
-            if (bullet.y + bullet.height < 0) {
-                this.bullets.splice(i, 1);
-                i--;
-            }
-        }
-    },
-    
-    // Update enemy bullets
-    updateEnemyBullets: function() {
-        for (let i = 0; i < this.enemyBullets.length; i++) {
-            const bullet = this.enemyBullets[i];
-            bullet.y += bullet.speed;
-            
-            // Remove bullets that go off-screen
-            if (bullet.y > this.height) {
-                this.enemyBullets.splice(i, 1);
-                i--;
-            }
-        }
-    },
-    
-    // Update enemies
-    updateEnemies: function() {
-        let changeDirection = false;
-        
-        // Check if any enemy is at the edge
-        for (const enemy of this.enemies) {
-            if ((enemy.x + enemy.width > this.width && this.enemyDirection > 0) || 
-                (enemy.x < 0 && this.enemyDirection < 0)) {
-                changeDirection = true;
-                break;
-            }
-        }
-        
-        // If we need to change direction, flip the direction
-        if (changeDirection) {
-            this.enemyDirection *= -1;
-        }
-        
-        // Update each enemy
-        for (const enemy of this.enemies) {
-            // Move enemies horizontally based on current direction
-            enemy.x += this.enemyDirection * (0.5 + this.level * 0.1);
-            
-            // Check if enemy reached the bottom
-            if (enemy.y + enemy.height > this.player.y) {
-                this.handleGameOver();
-                return;
-            }
-            
-            // Enemy might fire
-            this.enemyFireBullet(enemy);
-        }
-        
-        // Check if all enemies are defeated
-        if (this.enemies.length === 0) {
-            this.levelUp();
-        }
-    },
-    
-    // Update particles
-    updateParticles: function() {
-        for (let i = 0; i < this.particles.length; i++) {
-            const particle = this.particles[i];
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-            particle.alpha -= 0.02;
-            
-            if (particle.alpha <= 0) {
-                this.particles.splice(i, 1);
-                i--;
-            }
         }
     },
     
