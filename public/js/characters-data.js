@@ -2,99 +2,105 @@
 const characterData = [
     {
         _id: "char1",
-        name: "Gakutaghi",
-        description: "A hikikomori cat boy who prefers to stay at home. He has enhanced reflexes for dodging enemy bullets.",
-        image: "img/characters/gakutaghi.png",
-        rarity: "rare",
-        stats: {
-            speed: 7,
-            fireRate: 4,
-            health: 3,
-            damage: 1
-        },
-        specialAbility: {
-            name: "Dodge Master",
-            description: "Temporarily increases movement speed by 100% for 3 seconds",
-            cooldown: 15
-        }
-    },
-    {
-        _id: "char2",
-        name: "Quandale Dingle",
-        description: "A legendary troublemaker with powerful attack capabilities but slow movement.",
-        image: "img/characters/quandale.png",
+        name: "Tralalero Tralala",
+        description: "An AI-generated shark wearing Nike sneakers with incredible speed and agility.",
+        image: "img/characters/tralalero.png",
+        fallbackImage: "img/characters/default.png",
         rarity: "legendary",
         stats: {
-            speed: 3,
-            fireRate: 6,
-            health: 2,
-            damage: 3
+            speed: 8,
+            fireRate: 5,
+            health: 3,
+            damage: 2
         },
         specialAbility: {
-            name: "Dingle Blast",
-            description: "Fires a massive blast that destroys all enemies in a straight line",
+            name: "Shark Dash",
+            description: "Increases speed dramatically and makes you invulnerable for 2 seconds",
             cooldown: 20
         }
     },
     {
-        _id: "char3",
-        name: "Fat Hog",
-        description: "A robust and resilient character with high health but slow movement and firing rate.",
-        image: "img/characters/fathog.png",
+        _id: "char2",
+        name: "Bombardiro Crocodilo",
+        description: "An anthropomorphic crocodile fused with a military bomber plane—complete with wings, bombs, and a warplane body.",
+        image: "img/characters/bombardiro.png",
+        fallbackImage: "img/characters/default.png",
         rarity: "epic",
         stats: {
-            speed: 2,
-            fireRate: 2,
-            health: 6,
-            damage: 2
+            speed: 4,
+            fireRate: 3,
+            health: 4,
+            damage: 4
         },
         specialAbility: {
-            name: "Tank Shield",
-            description: "Creates a temporary shield that blocks all damage for 5 seconds",
+            name: "Carpet Bombing",
+            description: "Drops multiple bombs that destroy all enemies below you",
             cooldown: 25
         }
     },
     {
-        _id: "char4",
-        name: "Sematary",
-        description: "A spooky character with enhanced bullet speed and damage but low health.",
-        image: "img/characters/sematary.png",
-        rarity: "epic",
-        stats: {
-            speed: 5,
-            fireRate: 7,
-            health: 2,
-            damage: 2
-        },
-        specialAbility: {
-            name: "Ghost Bullets",
-            description: "Bullets pass through defensive walls and can hit multiple enemies",
-            cooldown: 18
-        }
-    },
-    {
-        _id: "char5",
-        name: "Squimpus McGrimpus",
-        description: "A mysterious character with balanced stats and unpredictable abilities.",
-        image: "img/characters/squimpus.png",
+        _id: "char3",
+        name: "Tung Tung Sahur",
+        description: "A surreal character often shown wielding a baseball bat. Known for incredible attack power.",
+        image: "img/characters/tungtung.png",
+        fallbackImage: "img/characters/default.png",
         rarity: "rare",
         stats: {
-            speed: 5,
-            fireRate: 5,
-            health: 4,
-            damage: 1
+            speed: 3,
+            fireRate: 2,
+            health: 3,
+            damage: 5
         },
         specialAbility: {
-            name: "Random Glitch",
-            description: "Randomly enhances one stat to maximum for 4 seconds",
+            name: "Bat Swing",
+            description: "Swings the bat to reflect enemy bullets back at them for 3 seconds",
             cooldown: 15
         }
     },
     {
+        _id: "char4",
+        name: "Lirili Larila",
+        description: "A cactus-elephant hybrid, walking on two feet that sport sandals. Highly resistant to damage.",
+        image: "img/characters/lirili.png",
+        fallbackImage: "img/characters/default.png",
+        rarity: "epic",
+        stats: {
+            speed: 2,
+            fireRate: 3,
+            health: 6,
+            damage: 2
+        },
+        specialAbility: {
+            name: "Cactus Shield",
+            description: "Creates a thorny shield that damages enemies on contact for 5 seconds",
+            cooldown: 20
+        }
+    },
+    {
+        _id: "char5",
+        name: "Boneca Ambalabu",
+        description: "A frog-tire hybrid with human legs—a whimsical AI-generated Indonesian brainrot character.",
+        image: "img/characters/boneca.png",
+        fallbackImage: "img/characters/default.png",
+        rarity: "rare",
+        stats: {
+            speed: 6,
+            fireRate: 4,
+            health: 3,
+            damage: 2
+        },
+        specialAbility: {
+            name: "Rubber Bounce",
+            description: "Bounces all incoming projectiles back to enemies for 3 seconds",
+            cooldown: 18
+        }
+    },
+    {
         _id: "char6",
-        name: "Felix",
-        description: "A default character with balanced stats. Nothing special but reliable.",
-        image: "img/characters/felix.png",
+        name: "Brr Brr Patapim",
+        description: "A creature that's part forest tree, part long-nosed monkey, with oversized human feet.",
+        image: "img/characters/brrbrr.png",
+        fallbackImage: "img/characters/default.png",
         rarity: "common",
         stats: {
             speed: 5,
@@ -103,48 +109,126 @@ const characterData = [
             damage: 1
         },
         specialAbility: {
-            name: "Basic Boost",
-            description: "Slightly increases all stats for 3 seconds",
-            cooldown: 12
+            name: "Golden Hat",
+            description: "Summons a blue frog named Slim who shoots additional bullets for 5 seconds",
+            cooldown: 15
         }
     },
     {
         _id: "char7",
-        name: "Daniel",
-        description: "An engineer character who can repair defensive walls during gameplay.",
-        image: "img/characters/daniel.png",
+        name: "Chimpanzini Bananini",
+        description: "A chimp-banana fusion—essentially a chimpanzee whose body is half-banana—first popularized on TikTok.",
+        image: "img/characters/chimpanzini.png",
+        fallbackImage: "img/characters/default.png",
         rarity: "rare",
         stats: {
-            speed: 4,
-            fireRate: 4,
-            health: 3,
-            damage: 1
+            speed: 6,
+            fireRate: 6,
+            health: 2,
+            damage: 2
         },
         specialAbility: {
-            name: "Wall Repair",
-            description: "Repairs all defensive walls by 50% of their max health",
-            cooldown: 30
+            name: "Banana Split",
+            description: "Fires in 3 directions simultaneously for 4 seconds",
+            cooldown: 20
         }
     },
     {
         _id: "char8",
-        name: "Mike Ehrmantraut",
-        description: "A seasoned veteran with enhanced precision and tactical advantages.",
-        image: "img/characters/mike.png",
+        name: "Bombombini Gusini",
+        description: "Bombardiro Crocodilo's goose-in-armor brother, equipped with jet engines and grenade launchers on its wings.",
+        image: "img/characters/bombombini.png",
+        fallbackImage: "img/characters/default.png",
+        rarity: "epic",
+        stats: {
+            speed: 5,
+            fireRate: 7,
+            health: 3,
+            damage: 3
+        },
+        specialAbility: {
+            name: "Grenade Barrage",
+            description: "Launches grenades that explode on impact, damaging multiple enemies",
+            cooldown: 22
+        }
+    },
+    {
+        _id: "char9",
+        name: "Cappuccino Assassino",
+        description: "An anthropomorphic cup of cappuccino wielding dual katanas—renowned for extreme speed and precision.",
+        image: "img/characters/cappuccino.png",
+        fallbackImage: "img/characters/default.png",
         rarity: "legendary",
         stats: {
-            speed: 4,
+            speed: 9,
             fireRate: 8,
+            health: 2,
+            damage: 3
+        },
+        specialAbility: {
+            name: "Dual Slash",
+            description: "Performs lightning-fast slashes that destroy all bullets and enemies in close range",
+            cooldown: 30
+        }
+    },
+    {
+        _id: "char10",
+        name: "Trippi Troppi",
+        description: "A hairy, pot-bellied bipedal creature with a fish head, often surrounded by giant mosquitoes in AI-generated memes.",
+        image: "img/characters/trippi.png",
+        fallbackImage: "img/characters/default.png",
+        rarity: "rare",
+        stats: {
+            speed: 4,
+            fireRate: 4,
             health: 4,
             damage: 2
         },
         specialAbility: {
-            name: "No Half Measures",
-            description: "Instantly eliminates the two strongest enemies on the screen",
+            name: "Mosquito Swarm",
+            description: "Summons giant mosquitoes that attack nearby enemies for 5 seconds",
+            cooldown: 25
+        }
+    },
+    {
+        _id: "char11",
+        name: "Frigo Camelo",
+        description: "A camel whose body is a refrigerator and whose feet are massive boots, lamenting its 'funny burden' in a narrated rhyme.",
+        image: "img/characters/frigo.png",
+        fallbackImage: "img/characters/default.png",
+        rarity: "common",
+        stats: {
+            speed: 3,
+            fireRate: 3,
+            health: 5,
+            damage: 1
+        },
+        specialAbility: {
+            name: "Cold Storage",
+            description: "Freezes all enemies temporarily, making them move slower for 4 seconds",
+            cooldown: 18
+        }
+    },
+    {
+        _id: "char12",
+        name: "La Vaca Saturno",
+        description: "A 'galaxy cow' with Saturn's rings as its body and giant human feet; it can fly and fire black-laser burps.",
+        image: "img/characters/lavaca.png",
+        fallbackImage: "img/characters/default.png",
+        rarity: "legendary",
+        stats: {
+            speed: 4,
+            fireRate: 3,
+            health: 4,
+            damage: 5
+        },
+        specialAbility: {
+            name: "Black Laser Burp",
+            description: "Fires a massive black laser beam that destroys everything in its path",
             cooldown: 35
         }
     }
 ];
 
 // Default available characters for new players
-const defaultCharacters = ["char6"]; // Felix is the default character 
+const defaultCharacters = ["char6"]; // Brr Brr Patapim is the default character 
