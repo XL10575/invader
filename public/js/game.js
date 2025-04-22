@@ -25,6 +25,7 @@ const Game = {
     enemyBullets: [],
     particles: [],
     defensiveWalls: [],
+    enemyDirection: 1, // Add a property to track enemy direction
     
     // Animation frame
     animationId: null,
@@ -289,6 +290,7 @@ const Game = {
     // Create enemies
     createEnemies: function() {
         this.enemies = [];
+        this.enemyDirection = 1; // Reset direction when creating new enemies
         
         const rows = 5;
         const cols = 10;
@@ -477,26 +479,25 @@ const Game = {
     // Update enemies
     updateEnemies: function() {
         let changeDirection = false;
-        let direction = 1;
         
         // Check if any enemy is at the edge
         for (const enemy of this.enemies) {
-            if (enemy.x + enemy.width > this.width || enemy.x < 0) {
+            if ((enemy.x + enemy.width > this.width && this.enemyDirection > 0) || 
+                (enemy.x < 0 && this.enemyDirection < 0)) {
                 changeDirection = true;
-                direction = (enemy.x + enemy.width > this.width) ? -1 : 1;
                 break;
             }
         }
         
+        // If we need to change direction, flip the direction
+        if (changeDirection) {
+            this.enemyDirection *= -1;
+        }
+        
         // Update each enemy
         for (const enemy of this.enemies) {
-            if (changeDirection) {
-                // Only change direction, don't move down
-                enemy.x += direction * 5; // Adjust position immediately to prevent sticking at edge
-            } else {
-                // Horizontal movement only
-                enemy.x += direction * (0.2 + this.level * 0.1);
-            }
+            // Move enemies horizontally based on current direction
+            enemy.x += this.enemyDirection * (0.5 + this.level * 0.1);
             
             // Check if enemy reached the bottom
             if (enemy.y + enemy.height > this.player.y) {
