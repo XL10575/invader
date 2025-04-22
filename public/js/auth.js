@@ -6,7 +6,7 @@ const Auth = {
     // Initialize Auth
     init: function() {
         this.setupEventListeners();
-        this.checkAuthStatus();
+        this.loadSavedUser();
     },
     
     // Setup event listeners for login/register forms
@@ -31,8 +31,17 @@ const Auth = {
             const password = document.getElementById('login-password').value;
             
             try {
-                // For demo purposes, just create a mock user
-                await this.createMockUser(email);
+                // Check if user exists in localStorage
+                const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
+                if (savedUsers[email]) {
+                    // Load existing user
+                    this.loadUser(savedUsers[email]);
+                    alert(`Welcome back, ${savedUsers[email].username}!`);
+                } else {
+                    // Create new user if not found
+                    await this.createMockUser(email);
+                    alert('New account created!');
+                }
             } catch (error) {
                 alert(error.message);
             }
@@ -48,8 +57,15 @@ const Auth = {
             const password = document.getElementById('register-password').value;
             
             try {
-                // For demo purposes, just create a mock user
-                await this.createMockUser(email, username);
+                // Check if user already exists
+                const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
+                if (savedUsers[email]) {
+                    alert('An account with this email already exists. Please login instead.');
+                } else {
+                    // Create new user
+                    await this.createMockUser(email, username);
+                    alert('Account created successfully!');
+                }
             } catch (error) {
                 alert(error.message);
             }
@@ -75,50 +91,57 @@ const Auth = {
         this.currentUser = {
             email: email,
             username: username,
-            coins: 500,
+            coins: 10, // Changed from 500 to 10
             highScore: 0,
             characters: [defaultChar],
             selectedCharacter: defaultChar
         };
         
-        // Store mock token
-        localStorage.setItem('token', 'mock-token-for-demo');
+        // Save to localStorage
+        this.saveUser();
         
         this.showMainMenu();
         return this.currentUser;
     },
     
-    // Check if user is logged in
-    checkAuthStatus: function() {
-        const token = localStorage.getItem('token');
+    // Save current user data to localStorage
+    saveUser: function() {
+        if (!this.currentUser) return;
         
-        if (token) {
-            // For demo, create a mock user if token exists
-            if (token === 'mock-token-for-demo' && !this.currentUser) {
-                this.createMockUser('demo@example.com')
-                    .then(() => {
-                        this.showMainMenu();
-                    });
-            } else {
-                this.fetchUserData()
-                    .then(() => {
-                        this.showMainMenu();
-                    })
-                    .catch(() => {
-                        this.logout();
-                    });
-            }
-        } else {
-            this.showLoginSection();
-        }
+        // Get all saved users
+        const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
+        
+        // Update this user's data
+        savedUsers[this.currentUser.email] = this.currentUser;
+        
+        // Save back to localStorage
+        localStorage.setItem('savedUsers', JSON.stringify(savedUsers));
+        
+        // Also save current user email for session
+        localStorage.setItem('currentUserEmail', this.currentUser.email);
+    },
+    
+    // Load user data from localStorage
+    loadUser: function(userData) {
+        this.currentUser = userData;
+        
+        // Save current user email for session
+        localStorage.setItem('currentUserEmail', this.currentUser.email);
+        
+        this.showMainMenu();
+    },
+    
+    // Try to load the saved user on startup
+    loadSavedUser: function() {
+        // Always start with login screen in this version
+        this.showLoginSection();
     },
     
     // Fetch user data
     fetchUserData: async function() {
         try {
             if (!this.currentUser) {
-                // For demo, create a mock user
-                return this.createMockUser('demo@example.com');
+                throw new Error("No user data available");
             }
             
             document.getElementById('user-coins').querySelector('span').textContent = this.currentUser.coins;
@@ -133,8 +156,15 @@ const Auth = {
     // Login user
     login: async function(email, password) {
         try {
-            // For demo, create a mock user
-            return this.createMockUser(email);
+            // Try to find user in saved users
+            const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
+            if (savedUsers[email]) {
+                this.loadUser(savedUsers[email]);
+                return this.currentUser;
+            } else {
+                // Create new user if not found
+                return this.createMockUser(email);
+            }
         } catch (error) {
             console.error('Login error:', error);
             throw error;
@@ -144,7 +174,13 @@ const Auth = {
     // Register user
     register: async function(username, email, password) {
         try {
-            // For demo, create a mock user
+            // Check if user already exists
+            const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
+            if (savedUsers[email]) {
+                throw new Error('User already exists');
+            }
+            
+            // Create new user
             return this.createMockUser(email, username);
         } catch (error) {
             console.error('Registration error:', error);
@@ -154,7 +190,8 @@ const Auth = {
     
     // Logout user
     logout: function() {
-        localStorage.removeItem('token');
+        // Remove current user email but keep user data
+        localStorage.removeItem('currentUserEmail');
         this.currentUser = null;
         this.showLoginSection();
     },
@@ -196,6 +233,9 @@ const Auth = {
             if (document.getElementById('gacha-user-coins')) {
                 document.getElementById('gacha-user-coins').querySelector('span').textContent = coins;
             }
+            
+            // Save updated data
+            this.saveUser();
         }
     },
     
@@ -204,6 +244,9 @@ const Auth = {
         if (this.currentUser && score > this.currentUser.highScore) {
             this.currentUser.highScore = score;
             document.getElementById('user-high-score').querySelector('span').textContent = score;
+            
+            // Save updated data
+            this.saveUser();
         }
     }
 }; 

@@ -13,6 +13,8 @@ const Game = {
     level: 1,
     startTime: 0,
     playTime: 0,
+    coinsEarned: 0,
+    startingPlayerCoins: 0,
     
     // Game settings
     width: 800,
@@ -43,101 +45,123 @@ const Game = {
         this.canvas.width = this.width;
         this.canvas.height = this.height;
         
-        // Setup event listeners
         this.setupEventListeners();
         
-        // Create character display
-        this.createCharacterDisplay();
+        this.resetGame();
     },
     
     // Setup event listeners
     setupEventListeners: function() {
-        // Game navigation buttons
+        // Start game button
         document.getElementById('start-game').addEventListener('click', () => {
-            this.showGameSection();
-            this.startGame();
-        });
-        
-        document.getElementById('pause-btn').addEventListener('click', () => {
-            this.togglePause();
-        });
-        
-        document.getElementById('resume-btn').addEventListener('click', () => {
-            this.togglePause();
-        });
-        
-        document.getElementById('quit-btn').addEventListener('click', () => {
-            this.quitGame();
-        });
-        
-        document.getElementById('play-again-btn').addEventListener('click', () => {
+            document.querySelectorAll('.section').forEach(section => section.classList.add('hide'));
+            document.getElementById('game-section').classList.remove('hide');
+            
             this.resetGame();
-            this.startGame();
+            this.startGameLoop();
         });
         
-        document.getElementById('return-menu-btn').addEventListener('click', () => {
-            this.quitGame();
+        // Pause button
+        document.getElementById('pause-btn').addEventListener('click', () => {
+            document.getElementById('pause-menu').classList.remove('hide');
+            this.isGameOver = true; // Pause the game by stopping the loop
         });
         
-        // Show instructions button
+        // Resume button
+        document.getElementById('resume-btn').addEventListener('click', () => {
+            document.getElementById('pause-menu').classList.add('hide');
+            this.isGameOver = false; // Resume the game
+            this.gameLoop();
+        });
+        
+        // Quit button
+        document.getElementById('quit-btn').addEventListener('click', () => {
+            document.getElementById('pause-menu').classList.add('hide');
+            document.getElementById('game-section').classList.add('hide');
+            Auth.showMainMenu();
+        });
+        
+        // Instructions button
         document.getElementById('instructions-btn').addEventListener('click', () => {
             document.getElementById('instructions-modal').classList.remove('hide');
-            this.togglePause();
+            this.isGameOver = true; // Pause while showing instructions
         });
         
-        // Close instructions modal
+        // Close instructions button
         document.getElementById('close-instructions').addEventListener('click', () => {
             document.getElementById('instructions-modal').classList.add('hide');
-            if (document.getElementById('pause-modal').classList.contains('hide')) {
-                this.togglePause();
-            }
-        });
-        
-        // Keyboard events
-        window.addEventListener('keydown', (e) => {
-            if (this.isRunning && !this.isPaused && !this.gameOver) {
-                // Move left with left arrow or A
-                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
-                    this.player.moveLeft = true;
-                }
-                
-                // Move right with right arrow or D
-                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-                    this.player.moveRight = true;
-                }
-                
-                // Fire with space
-                if (e.key === ' ') {
-                    this.fireBullet();
-                }
-                
-                // Use special ability with Shift
-                if ((e.key === 'Shift' || e.key === 'ShiftLeft' || e.key === 'ShiftRight') && 
-                    this.player && this.player.character && this.player.character.specialAbility) {
-                    console.log("Shift key pressed, attempting to use special ability");
-                    this.useSpecialAbility();
-                }
-            }
             
-            // Pause with Escape
-            if (e.key === 'Escape' && this.isRunning && !this.gameOver) {
-                this.togglePause();
+            // Only resume if we're not in the pause menu
+            if (document.getElementById('pause-menu').classList.contains('hide')) {
+                this.isGameOver = false;
+                this.gameLoop();
             }
         });
         
-        window.addEventListener('keyup', (e) => {
-            if (this.isRunning) {
-                // Stop moving left
-                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
-                    this.player.moveLeft = false;
-                }
-                
-                // Stop moving right
-                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-                    this.player.moveRight = false;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                this.player.moveLeft = true;
+            } else if (e.key === 'ArrowRight') {
+                this.player.moveRight = true;
+            } else if (e.key === ' ' || e.key === 'Space') {
+                this.fireBullet();
+            } else if (e.key === 'Shift') {
+                this.useSpecialAbility();
+            } else if (e.key === 'Escape') {
+                // Toggle pause menu
+                if (document.getElementById('pause-menu').classList.contains('hide') && 
+                    document.getElementById('instructions-modal').classList.contains('hide')) {
+                    document.getElementById('pause-menu').classList.remove('hide');
+                    this.isGameOver = true;
+                } else if (!document.getElementById('pause-menu').classList.contains('hide')) {
+                    document.getElementById('pause-menu').classList.add('hide');
+                    this.isGameOver = false;
+                    this.gameLoop();
                 }
             }
         });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') {
+                this.player.moveLeft = false;
+            } else if (e.key === 'ArrowRight') {
+                this.player.moveRight = false;
+            }
+        });
+    },
+    
+    // Reset game
+    resetGame: function() {
+        this.score = 0;
+        this.level = 1;
+        this.coinsEarned = 0; // Track coins earned in this game session
+        this.startingPlayerCoins = Auth.currentUser ? Auth.currentUser.coins : 0;
+        this.lives = 3; // Set initial lives
+        
+        this.bullets = [];
+        this.enemyBullets = [];
+        this.enemies = [];
+        this.defensiveWalls = [];
+        this.particles = [];
+        this.floatingTexts = [];
+        
+        this.createPlayer();
+        this.createEnemies();
+        this.createDefensiveWalls();
+        
+        // Reset UI
+        document.getElementById('game-score').querySelector('span').textContent = this.score;
+        document.getElementById('game-level').querySelector('span').textContent = this.level;
+        document.getElementById('game-coins').querySelector('span').textContent = this.startingPlayerCoins;
+        document.getElementById('game-lives').querySelector('span').textContent = this.lives;
+        
+        // Create character display if it doesn't exist
+        if (!this.characterDisplay) {
+            this.createCharacterDisplay();
+        }
+        
+        // Update character display
+        this.updateCharacterDisplay();
     },
     
     // Show game section
@@ -186,34 +210,6 @@ const Game = {
         
         // Start game loop
         this.gameLoop();
-    },
-    
-    // Reset the game
-    resetGame: function() {
-        this.isRunning = false;
-        this.isPaused = false;
-        this.gameOver = false;
-        
-        this.score = 0;
-        this.lives = 3;
-        this.level = 1;
-        
-        this.bullets = [];
-        this.enemies = [];
-        this.enemyBullets = [];
-        this.particles = [];
-        this.defensiveWalls = [];
-        
-        document.getElementById('game-score').querySelector('span').textContent = this.score;
-        document.getElementById('game-lives').querySelector('span').textContent = this.lives;
-        
-        // Hide game over menu
-        document.getElementById('game-over').classList.add('hide');
-        
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-            this.animationId = null;
-        }
     },
     
     // Toggle pause
@@ -664,7 +660,35 @@ const Game = {
     // Level up
     levelUp: function() {
         this.level++;
+        
+        // Update level display
+        document.getElementById('game-level').querySelector('span').textContent = this.level;
+        
+        // Create level-up text indication
+        this.createLevelUpText();
+        
+        // Create new enemies for this level
         this.createEnemies();
+    },
+    
+    // Create level-up text animation
+    createLevelUpText: function() {
+        const levelUpText = {
+            x: this.width / 2,
+            y: this.height / 2,
+            value: `LEVEL ${this.level}`,
+            color: '#ffff00', // Yellow
+            alpha: 1,
+            life: 60,
+            scale: 1
+        };
+        
+        // Add to texts array if it doesn't exist
+        if (!this.floatingTexts) {
+            this.floatingTexts = [];
+        }
+        
+        this.floatingTexts.push(levelUpText);
     },
     
     // Check collisions
@@ -749,9 +773,13 @@ const Game = {
                                                         otherEnemy.y + otherEnemy.height/2, 
                                                         5);
                                     
-                                    // Check if enemy is destroyed
+                                    // Check if enemy is destroyed by explosion
                                     if (otherEnemy.health <= 0) {
                                         this.score += otherEnemy.points;
+                                        
+                                        // Award coins based on enemy type
+                                        this.awardCoinsForEnemy(otherEnemy);
+                                        
                                         document.getElementById('game-score').querySelector('span').textContent = this.score;
                                         
                                         this.createExplosion(otherEnemy.x + otherEnemy.width/2, 
@@ -779,6 +807,10 @@ const Game = {
                     // Remove enemy if health depleted
                     if (enemy.health <= 0) {
                         this.score += enemy.points;
+                        
+                        // Award coins based on enemy type
+                        this.awardCoinsForEnemy(enemy);
+                        
                         document.getElementById('game-score').querySelector('span').textContent = this.score;
                         
                         this.createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, 20);
@@ -1690,5 +1722,113 @@ const Game = {
             abilityStatusDiv.textContent = "Ability ready (press Shift)";
             abilityStatusDiv.style.color = '#00ffff';
         }
+    },
+    
+    // Award coins based on enemy type
+    awardCoinsForEnemy: function(enemy) {
+        // Base coin reward - 1 coin per enemy
+        let coinReward = 1;
+        
+        // Bonus based on enemy type/color
+        if (enemy.color === '#ff0000') { // Red enemies (top row, strongest)
+            coinReward += 2; // 3 coins total
+        } else if (enemy.color === '#ff7700') { // Orange enemies (middle rows)
+            coinReward += 1; // 2 coins total
+        }
+        
+        // Bonus based on level
+        coinReward += Math.floor(this.level / 3);
+        
+        // Update coins earned
+        this.coinsEarned += coinReward;
+        
+        // Update total coins (starting coins + earned coins)
+        const totalCoins = this.startingPlayerCoins + this.coinsEarned;
+        
+        // Update UI
+        document.getElementById('game-coins').querySelector('span').textContent = totalCoins;
+        
+        // Create coin floating text
+        this.createCoinText(enemy.x + enemy.width/2, enemy.y, coinReward);
+    },
+    
+    // Create floating text to show coins earned
+    createCoinText: function(x, y, amount) {
+        const text = {
+            x: x,
+            y: y,
+            value: `+${amount}`,
+            color: '#f1c40f', // Gold color
+            alpha: 1,
+            life: 30
+        };
+        
+        // Add to texts array if it doesn't exist
+        if (!this.floatingTexts) {
+            this.floatingTexts = [];
+        }
+        
+        this.floatingTexts.push(text);
+    },
+    
+    // Update floating texts
+    updateFloatingTexts: function() {
+        if (!this.floatingTexts) return;
+        
+        for (let i = 0; i < this.floatingTexts.length; i++) {
+            const text = this.floatingTexts[i];
+            
+            // Different behavior based on text type
+            if (text.value.startsWith("LEVEL")) {
+                // Level text stays in center and pulses
+                if (text.life > 40) {
+                    // Growing phase
+                    text.scale = 1 + (60 - text.life) * 0.05;
+                } else if (text.life < 20) {
+                    // Shrinking phase
+                    text.alpha -= 0.05;
+                    text.scale = text.life * 0.05;
+                }
+            } else {
+                // Coin text floats up
+                text.y -= 1;
+                text.alpha -= 0.03;
+            }
+            
+            text.life--; // Decrease life
+            
+            if (text.life <= 0) {
+                this.floatingTexts.splice(i, 1);
+                i--;
+            }
+        }
+    },
+    
+    // Draw floating texts
+    drawFloatingTexts: function() {
+        if (!this.floatingTexts) return;
+        
+        this.ctx.save();
+        
+        for (const text of this.floatingTexts) {
+            this.ctx.globalAlpha = text.alpha;
+            this.ctx.fillStyle = text.color;
+            
+            // Check if this is a level-up text (based on the value starting with "LEVEL")
+            if (text.value.startsWith("LEVEL")) {
+                // Draw level-up text with shadow and larger size
+                this.ctx.shadowColor = "#000000";
+                this.ctx.shadowBlur = 5;
+                this.ctx.font = `bold ${32 * text.scale}px 'Press Start 2P', cursive`;
+            } else {
+                // Draw regular coin text
+                this.ctx.font = 'bold 16px Arial';
+            }
+            
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(text.value, text.x, text.y);
+        }
+        
+        this.ctx.restore();
     }
 }; 
