@@ -24,6 +24,7 @@ const Game = {
     enemies: [],
     enemyBullets: [],
     particles: [],
+    defensiveWalls: [],
     
     // Animation frame
     animationId: null,
@@ -68,6 +69,20 @@ const Game = {
         
         document.getElementById('return-menu-btn').addEventListener('click', () => {
             this.quitGame();
+        });
+        
+        // Show instructions button
+        document.getElementById('instructions-btn').addEventListener('click', () => {
+            document.getElementById('instructions-modal').classList.remove('hide');
+            this.togglePause();
+        });
+        
+        // Close instructions modal
+        document.getElementById('close-instructions').addEventListener('click', () => {
+            document.getElementById('instructions-modal').classList.add('hide');
+            if (document.getElementById('pause-modal').classList.contains('hide')) {
+                this.togglePause();
+            }
         });
         
         // Keyboard events
@@ -137,6 +152,9 @@ const Game = {
         // Create player
         this.createPlayer();
         
+        // Create defensive walls
+        this.createDefensiveWalls();
+        
         // Create enemies
         this.createEnemies();
         
@@ -162,6 +180,7 @@ const Game = {
         this.enemies = [];
         this.enemyBullets = [];
         this.particles = [];
+        this.defensiveWalls = [];
         
         document.getElementById('game-score').querySelector('span').textContent = this.score;
         document.getElementById('game-lives').querySelector('span').textContent = this.lives;
@@ -286,6 +305,52 @@ const Game = {
             }
         }
     },
+
+    // Create defensive walls
+    createDefensiveWalls: function() {
+        this.defensiveWalls = [];
+        
+        const wallWidth = 60;
+        const wallHeight = 40;
+        const wallCount = 4;
+        const gap = (this.width - (wallCount * wallWidth)) / (wallCount + 1);
+        
+        for (let i = 0; i < wallCount; i++) {
+            const wall = {
+                x: gap + i * (wallWidth + gap),
+                y: this.height - 120,
+                width: wallWidth,
+                height: wallHeight,
+                health: 20,
+                segments: []
+            };
+            
+            // Create wall segments (smaller blocks that make up the wall)
+            const segmentSize = 10;
+            const segmentRows = wallHeight / segmentSize;
+            const segmentCols = wallWidth / segmentSize;
+            
+            for (let row = 0; row < segmentRows; row++) {
+                for (let col = 0; col < segmentCols; col++) {
+                    // Create an arch-like shape for the wall
+                    if (row === 0 && (col === 0 || col === segmentCols - 1)) continue;
+                    if (row === 1 && (col === 0 || col === segmentCols - 1)) continue;
+                    
+                    const segment = {
+                        x: wall.x + col * segmentSize,
+                        y: wall.y + row * segmentSize,
+                        width: segmentSize,
+                        height: segmentSize,
+                        health: 2
+                    };
+                    
+                    wall.segments.push(segment);
+                }
+            }
+            
+            this.defensiveWalls.push(wall);
+        }
+    },
     
     // Fire bullet
     fireBullet: function() {
@@ -312,14 +377,14 @@ const Game = {
     
     // Enemy fire bullet
     enemyFireBullet: function(enemy) {
-        // Random chance to fire based on level
-        if (Math.random() < 0.002 * this.level) {
+        // Random chance to fire based on level, reduced to make it fairer
+        if (Math.random() < 0.0005 * this.level) {
             const bullet = {
                 x: enemy.x + enemy.width / 2 - 2,
                 y: enemy.y + enemy.height,
                 width: 4,
                 height: 10,
-                speed: 5 + this.level
+                speed: 2 + this.level * 0.5 // Reduced enemy bullet speed
             };
             
             this.enemyBullets.push(bullet);
@@ -345,6 +410,7 @@ const Game = {
         
         // Draw everything
         this.drawPlayer();
+        this.drawDefensiveWalls();
         this.drawBullets();
         this.drawEnemies();
         this.drawEnemyBullets();
@@ -418,10 +484,11 @@ const Game = {
         // Update each enemy
         for (const enemy of this.enemies) {
             if (moveDown) {
-                enemy.y += 20;
-                enemy.x += direction * 10;
+                enemy.y += 10; // Reduced from 20 to 10 for slower downward movement
+                enemy.x += direction * 5; // Reduced from 10 to 5
             } else {
-                enemy.x += direction * (1 + this.level * 0.5);
+                // Drastically reduce the horizontal movement speed
+                enemy.x += direction * (0.2 + this.level * 0.1); // Reduced from 1 + level * 0.5
             }
             
             // Check if enemy reached the bottom
@@ -466,7 +533,40 @@ const Game = {
         // Player bullets vs enemies
         for (let i = 0; i < this.bullets.length; i++) {
             const bullet = this.bullets[i];
+            let bulletRemoved = false;
             
+            // Check collision with defensive walls first
+            for (const wall of this.defensiveWalls) {
+                for (let j = 0; j < wall.segments.length; j++) {
+                    const segment = wall.segments[j];
+                    
+                    if (this.isColliding(bullet, segment)) {
+                        segment.health -= bullet.damage;
+                        
+                        // Create explosion particles
+                        this.createExplosion(bullet.x, bullet.y, 3);
+                        
+                        // Remove bullet
+                        this.bullets.splice(i, 1);
+                        i--;
+                        bulletRemoved = true;
+                        
+                        // Remove segment if health depleted
+                        if (segment.health <= 0) {
+                            wall.segments.splice(j, 1);
+                            j--;
+                        }
+                        
+                        break;
+                    }
+                }
+                
+                if (bulletRemoved) break;
+            }
+            
+            if (bulletRemoved) continue;
+            
+            // Check collision with enemies
             for (let j = 0; j < this.enemies.length; j++) {
                 const enemy = this.enemies[j];
                 
@@ -479,6 +579,7 @@ const Game = {
                     // Remove bullet
                     this.bullets.splice(i, 1);
                     i--;
+                    bulletRemoved = true;
                     
                     // Remove enemy if health depleted
                     if (enemy.health <= 0) {
@@ -495,10 +596,42 @@ const Game = {
             }
         }
         
-        // Enemy bullets vs player
+        // Enemy bullets vs defensive walls
         for (let i = 0; i < this.enemyBullets.length; i++) {
             const bullet = this.enemyBullets[i];
+            let bulletRemoved = false;
             
+            for (const wall of this.defensiveWalls) {
+                for (let j = 0; j < wall.segments.length; j++) {
+                    const segment = wall.segments[j];
+                    
+                    if (this.isColliding(bullet, segment)) {
+                        segment.health -= 1;
+                        
+                        // Create explosion particles
+                        this.createExplosion(bullet.x, bullet.y, 3);
+                        
+                        // Remove bullet
+                        this.enemyBullets.splice(i, 1);
+                        i--;
+                        bulletRemoved = true;
+                        
+                        // Remove segment if health depleted
+                        if (segment.health <= 0) {
+                            wall.segments.splice(j, 1);
+                            j--;
+                        }
+                        
+                        break;
+                    }
+                }
+                
+                if (bulletRemoved) break;
+            }
+            
+            if (bulletRemoved) continue;
+            
+            // Enemy bullets vs player
             if (this.isColliding(bullet, this.player)) {
                 this.lives--;
                 document.getElementById('game-lives').querySelector('span').textContent = this.lives;
@@ -553,6 +686,16 @@ const Game = {
         this.ctx.closePath();
         this.ctx.fillStyle = '#00ff00';
         this.ctx.fill();
+    },
+    
+    // Draw defensive walls
+    drawDefensiveWalls: function() {
+        for (const wall of this.defensiveWalls) {
+            for (const segment of wall.segments) {
+                this.ctx.fillStyle = '#00aa00';
+                this.ctx.fillRect(segment.x, segment.y, segment.width, segment.height);
+            }
+        }
     },
     
     // Draw bullets

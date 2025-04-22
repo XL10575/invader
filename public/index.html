@@ -67,9 +67,31 @@
                 <div id="game-score">Score: <span>0</span></div>
                 <div id="game-coins">Coins: <span>0</span></div>
                 <div id="game-lives">Lives: <span>3</span></div>
-                <button id="pause-btn" class="btn small">Pause</button>
+                <button id="pause-btn" class="btn">Pause</button>
+                <button id="instructions-btn" class="btn">Instructions</button>
             </div>
             <canvas id="game-canvas"></canvas>
+            <div id="instructions-modal" class="modal hide">
+                <div class="modal-content">
+                    <h2>Game Instructions</h2>
+                    <div class="instructions">
+                        <p><strong>Controls:</strong></p>
+                        <ul>
+                            <li>Move: Arrow keys or A/D keys</li>
+                            <li>Shoot: Space bar</li>
+                            <li>Pause: Escape key or Pause button</li>
+                        </ul>
+                        <p><strong>Gameplay:</strong></p>
+                        <ul>
+                            <li>Destroy all enemies to advance to the next level</li>
+                            <li>Use the green defensive walls for cover</li>
+                            <li>Avoid enemy bullets and don't let enemies reach the bottom</li>
+                            <li>Each enemy destroyed earns you points based on their color</li>
+                        </ul>
+                    </div>
+                    <button id="close-instructions" class="btn">Close</button>
+                </div>
+            </div>
             <div id="pause-menu" class="hide">
                 <h2>Game Paused</h2>
                 <button id="resume-btn" class="btn">Resume</button>
