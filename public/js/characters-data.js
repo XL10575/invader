@@ -230,5 +230,46 @@ const characterData = [
     }
 ];
 
+// Create fallback images for all characters on page load
+function createFallbackImagesForAllCharacters() {
+    console.log("Pre-generating fallback images for all characters");
+    
+    characterData.forEach(character => {
+        // Create a canvas element
+        const canvas = document.createElement('canvas');
+        canvas.width = 100;
+        canvas.height = 100;
+        const ctx = canvas.getContext('2d');
+        
+        // Color based on rarity
+        const colors = {
+            common: '#aaaaaa',
+            rare: '#3498db',
+            epic: '#9b59b6',
+            legendary: '#f1c40f'
+        };
+        
+        // Set the color based on rarity
+        const color = colors[character.rarity] || '#ffffff';
+        
+        // Draw character shape
+        ctx.fillStyle = color;
+        ctx.fillRect(10, 10, 80, 80);
+        
+        // Draw character initial
+        ctx.fillStyle = '#000000';
+        ctx.font = '40px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(character.name.charAt(0), 50, 50);
+        
+        // Set the fallback image
+        character.generatedFallback = canvas.toDataURL('image/png');
+    });
+}
+
+// Run this when the script loads
+createFallbackImagesForAllCharacters();
+
 // Default available characters for new players
 const defaultCharacters = ["char1"]; // Tralalero Tralala is the default character 

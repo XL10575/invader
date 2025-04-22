@@ -123,11 +123,14 @@ const Characters = {
                 if (imgElement) {
                     imgElement.src = character.image;
                 }
+                
+                // Store the information that this image is loaded correctly
+                character._imageLoaded = true;
             };
             
             preloadImg.onerror = () => {
-                // Image failed to load, create a colored block with initial
-                this.createFallbackImage(character, card.querySelector('.character-img img'));
+                // Image failed to load, use the pre-generated fallback
+                this.useCharacterFallbackImage(character, card.querySelector('.character-img img'));
             };
             
             preloadImg.src = character.image;
@@ -141,8 +144,32 @@ const Characters = {
         });
     },
     
+    // Use the pre-generated fallback image for a character
+    useCharacterFallbackImage: function(character, imgElement) {
+        console.log(`Using fallback image for ${character.name}`);
+        
+        // Use pre-generated fallback if available
+        if (character.generatedFallback) {
+            if (imgElement) {
+                imgElement.src = character.generatedFallback;
+            }
+            
+            // Update the character data
+            if (!character._usedFallback) {
+                character.fallbackImage = character.generatedFallback;
+                character._usedFallback = true;
+            }
+            return;
+        }
+        
+        // Otherwise create a new fallback
+        this.createFallbackImage(character, imgElement);
+    },
+    
     // Create a fallback image for characters when their image fails to load
     createFallbackImage: function(character, imgElement) {
+        console.log(`Creating fallback for ${character.name}...`);
+        
         const canvas = document.createElement('canvas');
         canvas.width = 100;
         canvas.height = 100;
@@ -195,55 +222,31 @@ const Characters = {
             </div>
         `;
         
-        // Pre-load the character image to check if it exists
-        const preloadImg = new Image();
-        preloadImg.onload = () => {
-            // Image loaded successfully, update the details
-            detailsSection.querySelector('.character-image').innerHTML = `<img src="${character.image}" alt="${character.name}">`;
-        };
-        
-        preloadImg.onerror = () => {
-            // Image failed to load, create a colored block with initial
-            const canvas = document.createElement('canvas');
-            canvas.width = 200;
-            canvas.height = 200;
-            const ctx = canvas.getContext('2d');
-            
-            // Color based on rarity
-            const colors = {
-                common: '#aaaaaa',
-                rare: '#3498db',
-                epic: '#9b59b6',
-                legendary: '#f1c40f'
+        // Try using the pre-generated fallback first if it exists
+        if (character._usedFallback && character.fallbackImage) {
+            detailsSection.querySelector('.character-image').innerHTML = `<img src="${character.fallbackImage}" alt="${character.name}">`;
+        } else {
+            // Pre-load the character image to check if it exists
+            const preloadImg = new Image();
+            preloadImg.onload = () => {
+                // Image loaded successfully, update the details
+                detailsSection.querySelector('.character-image').innerHTML = `<img src="${character.image}" alt="${character.name}">`;
             };
             
-            // Set the color based on rarity
-            const color = colors[character.rarity] || '#ffffff';
+            preloadImg.onerror = () => {
+                // Image failed to load, use the fallback image or create one
+                if (character.generatedFallback) {
+                    detailsSection.querySelector('.character-image').innerHTML = `<img src="${character.generatedFallback}" alt="${character.name}">`;
+                    character.fallbackImage = character.generatedFallback;
+                    character._usedFallback = true;
+                } else {
+                    // Create a fallback
+                    this.createViewDetailsFallback(character, detailsSection);
+                }
+            };
             
-            // Draw character shape
-            ctx.fillStyle = color;
-            ctx.fillRect(20, 20, 160, 160);
-            
-            // Draw character initial
-            ctx.fillStyle = '#000000';
-            ctx.font = '80px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(character.name.charAt(0), 100, 100);
-            
-            // Update the image source
-            const dataURL = canvas.toDataURL('image/png');
-            detailsSection.querySelector('.character-image').innerHTML = `<img src="${dataURL}" alt="${character.name}">`;
-            
-            // Also update the character data
-            character.fallbackImage = dataURL;
-            if (!character._usedFallback) {
-                character.image = dataURL;
-                character._usedFallback = true;
-            }
-        };
-        
-        preloadImg.src = character.image;
+            preloadImg.src = character.image;
+        }
         
         detailsSection.querySelector('.character-name').textContent = character.name;
         
@@ -291,6 +294,49 @@ const Characters = {
         // Show details section
         document.getElementById('character-list').parentElement.classList.add('hide');
         detailsSection.classList.remove('hide');
+    },
+    
+    // Create a fallback image for the character details view
+    createViewDetailsFallback: function(character, detailsSection) {
+        console.log(`Creating details fallback for ${character.name}...`);
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 200;
+        const ctx = canvas.getContext('2d');
+        
+        // Color based on rarity
+        const colors = {
+            common: '#aaaaaa',
+            rare: '#3498db',
+            epic: '#9b59b6',
+            legendary: '#f1c40f'
+        };
+        
+        // Set the color based on rarity
+        const color = colors[character.rarity] || '#ffffff';
+        
+        // Draw character shape
+        ctx.fillStyle = color;
+        ctx.fillRect(20, 20, 160, 160);
+        
+        // Draw character initial
+        ctx.fillStyle = '#000000';
+        ctx.font = '80px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(character.name.charAt(0), 100, 100);
+        
+        // Update the image source
+        const dataURL = canvas.toDataURL('image/png');
+        detailsSection.querySelector('.character-image').innerHTML = `<img src="${dataURL}" alt="${character.name}">`;
+        
+        // Also update the character data
+        character.fallbackImage = dataURL;
+        if (!character._usedFallback) {
+            character.image = dataURL;
+            character._usedFallback = true;
+        }
     },
     
     // Select character

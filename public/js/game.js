@@ -340,14 +340,33 @@ const Game = {
                 character.image.substring(1) : character.image;
             
             console.log("Setting player image:", imagePath);
-            this.player.image.src = imagePath;
             
-            // Add an error handler to log any image loading issues
-            this.player.image.onerror = () => {
-                console.error(`Failed to load player image: ${imagePath}`);
-                // Create a fallback image with the character's initial
-                this.createFallbackImage(character);
-            };
+            // Check if this is a data URL (fallback already applied)
+            if (character.image.startsWith('data:image')) {
+                this.player.image.src = character.image;
+                console.log("Using pre-generated fallback image");
+            } else {
+                // Try to load the regular image
+                this.player.image.src = imagePath;
+                
+                // Add an error handler to log any image loading issues
+                this.player.image.onerror = () => {
+                    console.error(`Failed to load player image: ${imagePath}`);
+                    // Create a fallback image with the character's initial
+                    this.createFallbackImage(character);
+                };
+                
+                // Pre-load the image to trigger the error handler immediately if needed
+                const preloadImg = new Image();
+                preloadImg.onload = () => {
+                    console.log(`✅ Successfully loaded player image for ${character.name}`);
+                };
+                preloadImg.onerror = () => {
+                    console.error(`❌ Failed to preload image: ${imagePath}`);
+                    this.createFallbackImage(character);
+                };
+                preloadImg.src = imagePath;
+            }
         }
         
         // Update lives based on character health
@@ -874,8 +893,15 @@ const Game = {
             // Try loading the image again if it failed
             if (this.player.character && this.player.character.image && (!this.player.image || this.player.image.naturalWidth === 0)) {
                 console.log("Retrying image load for:", this.player.character.name);
-                this.player.image = new Image();
-                this.player.image.src = this.player.character.image;
+                
+                // If we have a fallback image already generated, use it
+                if (this.player.character.fallbackImage) {
+                    console.log("Using character's fallback image");
+                    this.player.image.src = this.player.character.fallbackImage;
+                } else if (typeof this.createFallbackImage === 'function') {
+                    // Otherwise create a new fallback
+                    this.createFallbackImage(this.player.character);
+                }
             }
         } else {
             // Draw character image if available and loaded
@@ -1547,124 +1573,122 @@ const Game = {
         }
     },
 
-    // Create character display UI on the left side
+    // Update the character display in the game UI
+    updateCharacterDisplay: function() {
+        // Create a character display if it doesn't exist
+        if (!this.characterDisplay) {
+            this.createCharacterDisplay();
+        }
+        
+        // Check if player has a character
+        if (!this.player || !this.player.character) {
+            console.log("No character to display");
+            return;
+        }
+        
+        // Update the character image
+        const charImg = document.getElementById('game-character-img');
+        if (charImg) {
+            // Use pre-generated fallback if available and character image isn't loaded
+            if ((!this.player.image || !this.player.image.complete || this.player.image.naturalWidth === 0) && 
+                this.player.character.generatedFallback) {
+                charImg.src = this.player.character.generatedFallback;
+            } else if (this.player.image.complete && this.player.image.naturalWidth > 0) {
+                charImg.src = this.player.image.src;
+            } else if (this.player.character.fallbackImage) {
+                charImg.src = this.player.character.fallbackImage;
+            }
+        }
+        
+        // Update character name
+        const charName = document.getElementById('game-character-name');
+        if (charName) {
+            charName.textContent = this.player.character.name;
+        }
+        
+        // Update ability info
+        this.updateAbilityCooldown();
+    },
+    
+    // Create the character display in the game UI
     createCharacterDisplay: function() {
-        // Create the character display container
-        const container = document.createElement('div');
-        container.id = 'character-display';
-        container.style.position = 'absolute';
-        container.style.left = '10px';
-        container.style.top = '70px';
-        container.style.width = '60px';
-        container.style.padding = '5px';
-        container.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        container.style.border = '2px solid #444';
-        container.style.borderRadius = '5px';
-        container.style.textAlign = 'center';
-        container.style.display = 'flex';
-        container.style.flexDirection = 'column';
-        container.style.alignItems = 'center';
+        // Check if the display already exists
+        if (document.getElementById('game-character-display')) {
+            return;
+        }
+        
+        // Create the display elements
+        const displayDiv = document.createElement('div');
+        displayDiv.id = 'game-character-display';
+        displayDiv.style.position = 'absolute';
+        displayDiv.style.bottom = '10px';
+        displayDiv.style.left = '10px';
+        displayDiv.style.display = 'flex';
+        displayDiv.style.alignItems = 'center';
+        displayDiv.style.background = 'rgba(0, 0, 0, 0.7)';
+        displayDiv.style.padding = '5px';
+        displayDiv.style.borderRadius = '5px';
         
         // Character image
-        const charImage = document.createElement('div');
-        charImage.id = 'char-display-image';
-        charImage.style.width = '50px';
-        charImage.style.height = '50px';
-        charImage.style.marginBottom = '5px';
-        charImage.style.backgroundColor = '#222';
-        charImage.style.backgroundSize = 'cover';
-        charImage.style.borderRadius = '5px';
+        const img = document.createElement('img');
+        img.id = 'game-character-img';
+        img.style.width = '40px';
+        img.style.height = '40px';
+        img.style.marginRight = '10px';
+        img.alt = 'Character';
         
-        // Ability indicator
-        const abilityIndicator = document.createElement('div');
-        abilityIndicator.id = 'ability-indicator';
-        abilityIndicator.style.width = '50px';
-        abilityIndicator.style.height = '10px';
-        abilityIndicator.style.backgroundColor = '#444';
-        abilityIndicator.style.borderRadius = '5px';
-        abilityIndicator.style.overflow = 'hidden';
+        // Character info
+        const infoDiv = document.createElement('div');
         
-        // Ability progress
-        const abilityProgress = document.createElement('div');
-        abilityProgress.id = 'ability-progress';
-        abilityProgress.style.width = '100%';
-        abilityProgress.style.height = '100%';
-        abilityProgress.style.backgroundColor = '#3498db';
-        abilityProgress.style.transition = 'width 0.1s linear';
+        // Character name
+        const nameDiv = document.createElement('div');
+        nameDiv.id = 'game-character-name';
+        nameDiv.style.color = '#fff';
+        nameDiv.style.fontWeight = 'bold';
         
-        // Ability label
-        const abilityLabel = document.createElement('div');
-        abilityLabel.id = 'ability-label';
-        abilityLabel.textContent = 'SHIFT';
-        abilityLabel.style.fontSize = '8px';
-        abilityLabel.style.color = '#fff';
-        abilityLabel.style.marginTop = '2px';
-        abilityLabel.style.fontFamily = "'Press Start 2P', cursive";
+        // Ability status
+        const abilityDiv = document.createElement('div');
+        abilityDiv.id = 'game-ability-status';
+        abilityDiv.style.color = '#aaa';
+        abilityDiv.style.fontSize = '12px';
         
-        // Assemble the components
-        abilityIndicator.appendChild(abilityProgress);
-        container.appendChild(charImage);
-        container.appendChild(abilityIndicator);
-        container.appendChild(abilityLabel);
+        // Add elements to the document
+        infoDiv.appendChild(nameDiv);
+        infoDiv.appendChild(abilityDiv);
+        displayDiv.appendChild(img);
+        displayDiv.appendChild(infoDiv);
         
-        // Add to game section
-        document.getElementById('game-section').appendChild(container);
+        // Add to game section (instead of game-container which might not exist)
+        document.getElementById('game-section').appendChild(displayDiv);
         
-        // Store references
-        this.characterDisplay = charImage;
-        this.abilityIndicator = abilityProgress;
+        // Mark the character display as created
+        this.characterDisplay = true;
     },
     
-    // Update character display
-    updateCharacterDisplay: function() {
-        if (!this.player || !this.characterDisplay) return;
-        
-        // Update character image
-        if (this.player.image && this.player.image.complete && this.player.image.naturalWidth > 0) {
-            this.characterDisplay.style.backgroundImage = `url(${this.player.image.src})`;
-        } else if (this.player.character) {
-            // Create colored block for character
-            const colors = {
-                common: '#aaaaaa',
-                rare: '#3498db',
-                epic: '#9b59b6',
-                legendary: '#f1c40f'
-            };
-            
-            const color = colors[this.player.character.rarity] || '#ffffff';
-            this.characterDisplay.style.backgroundColor = color;
-            this.characterDisplay.textContent = this.player.character.name.charAt(0);
-            this.characterDisplay.style.color = '#000';
-            this.characterDisplay.style.fontWeight = 'bold';
-            this.characterDisplay.style.fontSize = '24px';
-            this.characterDisplay.style.display = 'flex';
-            this.characterDisplay.style.alignItems = 'center';
-            this.characterDisplay.style.justifyContent = 'center';
-        }
-    },
-    
-    // Update ability cooldown display
+    // Update the ability cooldown display
     updateAbilityCooldown: function() {
-        if (!this.player || !this.abilityIndicator) return;
+        if (!this.player || !this.player.character || !this.player.character.specialAbility) {
+            return;
+        }
         
-        const now = Date.now();
+        const abilityStatusDiv = document.getElementById('game-ability-status');
+        if (!abilityStatusDiv) {
+            return;
+        }
         
         if (this.player.specialAbility.active) {
-            // Show as active
-            this.abilityIndicator.style.backgroundColor = '#2ecc71';
-            this.abilityIndicator.style.width = '100%';
+            abilityStatusDiv.textContent = "Special ability active!";
+            abilityStatusDiv.style.color = '#00ff00';
         } else if (this.player.specialAbility.cooldown) {
-            // Calculate cooldown progress
+            const now = Date.now();
             const elapsed = now - this.player.specialAbility.lastUsed;
-            const percent = (elapsed / this.player.specialAbility.cooldownTime) * 100;
+            const remaining = Math.max(0, Math.ceil((this.player.specialAbility.cooldownTime - elapsed) / 1000));
             
-            // Update indicator
-            this.abilityIndicator.style.backgroundColor = '#e74c3c';
-            this.abilityIndicator.style.width = `${Math.min(percent, 100)}%`;
+            abilityStatusDiv.textContent = `Ability ready in ${remaining}s`;
+            abilityStatusDiv.style.color = '#ff9900';
         } else {
-            // Ready to use
-            this.abilityIndicator.style.backgroundColor = '#3498db';
-            this.abilityIndicator.style.width = '100%';
+            abilityStatusDiv.textContent = "Ability ready (press Shift)";
+            abilityStatusDiv.style.color = '#00ffff';
         }
     }
 }; 
