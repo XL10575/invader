@@ -15,7 +15,7 @@ const characterData = [
         },
         specialAbility: {
             name: "Shark Dash",
-            description: "Increases speed dramatically and makes you invulnerable for 2 seconds",
+            description: "Increases speed dramatically and makes you invulnerable for 3 seconds",
             cooldown: 20
         }
     },
@@ -34,7 +34,7 @@ const characterData = [
         },
         specialAbility: {
             name: "Carpet Bombing",
-            description: "Drops multiple bombs that destroy all enemies below you",
+            description: "Drops multiple bombs in sequence that destroy enemies below you",
             cooldown: 25
         }
     },
@@ -53,7 +53,7 @@ const characterData = [
         },
         specialAbility: {
             name: "Bat Swing",
-            description: "Swings the bat to reflect enemy bullets back at them for 3 seconds",
+            description: "Reflects incoming enemy bullets back at enemies for 3 seconds",
             cooldown: 15
         }
     },
@@ -72,7 +72,7 @@ const characterData = [
         },
         specialAbility: {
             name: "Cactus Shield",
-            description: "Creates a thorny shield that damages enemies on contact for 5 seconds",
+            description: "Creates a shield that protects from enemy bullets for 5 seconds",
             cooldown: 20
         }
     },
@@ -91,7 +91,7 @@ const characterData = [
         },
         specialAbility: {
             name: "Rubber Bounce",
-            description: "Bounces all incoming projectiles back to enemies for 3 seconds",
+            description: "Bounces all incoming projectiles back at enemies for 3 seconds",
             cooldown: 18
         }
     },
@@ -109,8 +109,8 @@ const characterData = [
             damage: 1
         },
         specialAbility: {
-            name: "Golden Hat",
-            description: "Summons a blue frog named Slim who shoots additional bullets for 5 seconds",
+            name: "Wall Regeneration",
+            description: "Regenerates all defensive walls to full health instantly",
             cooldown: 15
         }
     },
@@ -128,8 +128,8 @@ const characterData = [
             damage: 2
         },
         specialAbility: {
-            name: "Banana Split",
-            description: "Fires in 3 directions simultaneously for 4 seconds",
+            name: "Banana Bullets",
+            description: "Fires larger, more powerful bullets for 10 seconds",
             cooldown: 20
         }
     },
@@ -147,8 +147,8 @@ const characterData = [
             damage: 3
         },
         specialAbility: {
-            name: "Grenade Barrage",
-            description: "Launches grenades that explode on impact, damaging multiple enemies",
+            name: "Explosive Round",
+            description: "Fires a special explosive bullet that damages enemies in a large area",
             cooldown: 22
         }
     },
@@ -166,8 +166,8 @@ const characterData = [
             damage: 3
         },
         specialAbility: {
-            name: "Dual Slash",
-            description: "Performs lightning-fast slashes that destroy all bullets and enemies in close range",
+            name: "Coffee Rush",
+            description: "Doubles bullet damage for 10 seconds, creating a damaging aura effect",
             cooldown: 30
         }
     },
@@ -185,8 +185,8 @@ const characterData = [
             damage: 2
         },
         specialAbility: {
-            name: "Mosquito Swarm",
-            description: "Summons giant mosquitoes that attack nearby enemies for 5 seconds",
+            name: "Time Warp",
+            description: "Slows down all enemy movement for 5 seconds",
             cooldown: 25
         }
     },
@@ -205,7 +205,7 @@ const characterData = [
         },
         specialAbility: {
             name: "Cold Storage",
-            description: "Freezes all enemies temporarily, making them move slower for 4 seconds",
+            description: "Freezes all enemies in place for 2 seconds",
             cooldown: 18
         }
     },
@@ -223,8 +223,8 @@ const characterData = [
             damage: 5
         },
         specialAbility: {
-            name: "Black Laser Burp",
-            description: "Fires a massive black laser beam that destroys everything in its path",
+            name: "Cosmic Column",
+            description: "Destroys all enemies in two vertical columns with cosmic energy",
             cooldown: 35
         }
     }
