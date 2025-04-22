@@ -36,16 +36,92 @@ const Game = {
     // Animation frame
     animationId: null,
     
+    // Main Game object
+    state: {
+        player: null,
+        enemies: [],
+        bullets: [],
+        powerups: [],
+        walls: [],
+        score: 0,
+        level: 1,
+        gameOver: false,
+        paused: false,
+        lastEnemySpawn: 0,
+        lastPowerupSpawn: 0,
+        isUsingPower: false,
+        powerCooldown: 0,
+        enemiesDestroyed: 0,
+        powerupsCollected: 0,
+        playerCharacter: null,
+        playerId: null,
+        apiKey: null,
+        playerImageLoaded: false
+    },
+    
+    // Game settings
+    settings: {
+        canvas: null,
+        ctx: null,
+        width: 800,
+        height: 600,
+        enemySpawnRate: 2000, // ms between enemy spawns
+        powerupSpawnRate: 15000, // ms between powerup spawns
+        enemySpeed: 2,
+        bulletSpeed: 7,
+        fps: 60,
+        debug: false
+    },
+    
     // Initialize the game
     init: function() {
-        this.canvas = document.getElementById('game-canvas');
-        this.ctx = this.canvas.getContext('2d');
+        console.log('Initializing game');
         
-        // Set canvas dimensions
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
+        // Create canvas
+        this.setupCanvas();
         
-        this.setupEventListeners();
+        // Setup input handlers
+        this.setupInputHandlers();
+        
+        // Initialize game state
+        this.initializeGameState();
+        
+        // Set player character if available from auth system
+        if (window.Auth && window.Auth.selectedCharacter) {
+            console.log('Using selected character:', window.Auth.selectedCharacter.name);
+            this.state.playerCharacter = window.Auth.selectedCharacter;
+        } else {
+            // Use default character if none selected
+            console.log('No character selected, using default');
+            this.state.playerCharacter = {
+                name: 'Default',
+                rarity: 'common',
+                stats: { health: 100, speed: 5, fireRate: 5 }
+            };
+        }
+        
+        // Log character details for debugging
+        if (this.state.playerCharacter) {
+            console.log('Character details:', this.state.playerCharacter);
+            if (this.state.playerCharacter.image) {
+                console.log('Character has image path:', this.state.playerCharacter.image);
+            } else {
+                console.log('Character does not have an image path, fallback will be created');
+            }
+            
+            if (this.state.playerCharacter.fallbackImage) {
+                console.log('Character has a fallback image');
+            }
+        }
+        
+        // Create player
+        this.createPlayer();
+        
+        // Create defensive walls
+        this.createDefensiveWalls();
+        
+        // Start game loop
+        this.startGameLoop();
     },
     
     // Setup event listeners
@@ -552,47 +628,43 @@ const Game = {
     
     // Draw player
     drawPlayer: function() {
-        // Create a placeholder for the player if the image isn't loaded or available
-        if (!this.player.image || !this.player.image.complete || !this.player.character || this.player.image.naturalWidth === 0) {
-            // Fallback to default triangle ship
-            this.ctx.fillStyle = '#00ff00';
-            this.ctx.beginPath();
-            this.ctx.moveTo(this.player.x + this.player.width / 2, this.player.y);
-            this.ctx.lineTo(this.player.x + this.player.width, this.player.y + this.player.height);
-            this.ctx.lineTo(this.player.x, this.player.y + this.player.height);
-            this.ctx.closePath();
-            this.ctx.fill();
-            
-            // Try loading the image again if it failed
-            if (this.player.character && this.player.character.image && (!this.player.image || this.player.image.naturalWidth === 0)) {
-                console.log("Retrying image load for:", this.player.character.name);
-                
-                // If we have a fallback image already generated, use it
-                if (this.player.character.fallbackImage) {
-                    console.log("Using character's fallback image");
-                    this.player.image.src = this.player.character.fallbackImage;
-                } else if (typeof this.createFallbackImage === 'function') {
-                    // Otherwise create a new fallback
-                    this.createFallbackImage(this.player.character);
+        const ctx = this.settings.ctx;
+        const player = this.state.player;
+        
+        ctx.save();
+        
+        // Draw player health bar
+        this.drawHealthBar(player.x, player.y - 10, player.width, 5, player.health);
+        
+        // Draw player ship
+        if (player.imageLoaded && player.image) {
+            // Use the loaded character image
+            ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
+        } else if (player.fallbackImage) {
+            // Use the fallback image (canvas or pre-generated image)
+            if (player.fallbackImage instanceof HTMLCanvasElement) {
+                ctx.drawImage(player.fallbackImage, player.x, player.y, player.width, player.height);
+            } else {
+                // Assuming fallbackImage is a data URL or path
+                if (!player.fallbackImageObj) {
+                    player.fallbackImageObj = new Image();
+                    player.fallbackImageObj.src = player.fallbackImage;
+                }
+                if (player.fallbackImageObj.complete) {
+                    ctx.drawImage(player.fallbackImageObj, player.x, player.y, player.width, player.height);
+                } else {
+                    // Draw default rectangle if fallback image is still loading
+                    ctx.fillStyle = player.color;
+                    ctx.fillRect(player.x, player.y, player.width, player.height);
                 }
             }
         } else {
-            // Draw character image if available and loaded
-            this.ctx.drawImage(
-                this.player.image,
-                this.player.x, 
-                this.player.y - 10, // Adjust position to make it look better
-                this.player.width,
-                this.player.height + 10 // Make the image slightly taller
-            );
+            // Default fallback - green rectangle
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
         }
         
-        // Draw special ability indicator if available
-        if (this.player.character && this.player.character.specialAbility && this.player.specialAbility.active) {
-            // Show active special ability indicator
-            this.ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-            this.ctx.fillRect(this.player.x - 5, this.player.y - 5, this.player.width + 10, this.player.height + 10);
-        }
+        ctx.restore();
     },
     
     // Draw defensive walls
@@ -1471,5 +1543,209 @@ const Game = {
         }
         
         this.ctx.restore();
+    },
+    
+    // Create the player based on the character
+    createPlayer: function() {
+        const character = this.state.playerCharacter || { 
+            name: 'Default', 
+            rarity: 'common',
+            stats: { health: 100, speed: 5, fireRate: 5 }
+        };
+        
+        // Use character stats or defaults
+        const stats = character.stats || { health: 100, speed: 5, fireRate: 5 };
+        
+        this.state.player = {
+            x: this.settings.width / 2 - 25,
+            y: this.settings.height - 70,
+            width: 50,
+            height: 50,
+            health: stats.health,
+            speed: 3 + stats.speed / 3, // Adjusted speed formula
+            fireRate: stats.fireRate,
+            color: '#00FF00',
+            lastFired: 0,
+            lives: 3,
+            image: null,
+            fallbackImage: null,
+            imageLoaded: false
+        };
+        
+        // Attempt to load the character image if available
+        if (character.image) {
+            this.state.player.image = new Image();
+            this.state.player.image.src = character.image;
+            
+            // Handle successful image load
+            this.state.player.image.onload = () => {
+                console.log('Player image loaded successfully');
+                this.state.player.imageLoaded = true;
+            };
+            
+            // Handle image load error
+            this.state.player.image.onerror = () => {
+                console.log('Failed to load player image, creating fallback');
+                
+                // Use pre-generated fallback if available
+                if (character.fallbackImage) {
+                    console.log('Using pre-generated fallback image');
+                    this.state.player.fallbackImage = character.fallbackImage;
+                } else {
+                    // Create fallback image
+                    this.createFallbackPlayerImage(character);
+                }
+            };
+        } else {
+            // No image specified, create a fallback
+            this.createFallbackPlayerImage(character);
+        }
+    },
+    
+    // Create a fallback image for the player
+    createFallbackPlayerImage: function(character) {
+        // Get first letter of character name
+        const initial = character.name ? character.name.charAt(0).toUpperCase() : 'P';
+        
+        // Set color based on rarity
+        let color = '#aaaaaa'; // Default gray for common
+        if (character.rarity === 'rare') color = '#3498db';
+        if (character.rarity === 'epic') color = '#9b59b6';
+        if (character.rarity === 'legendary') color = '#f1c40f';
+        
+        // Create canvas for fallback image
+        const canvas = document.createElement('canvas');
+        canvas.width = 50;
+        canvas.height = 50;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw background
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw initial
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initial, canvas.width / 2, canvas.height / 2);
+        
+        // Store the fallback image
+        this.state.player.fallbackImage = canvas;
+    },
+    
+    // Create defensive walls
+    createDefensiveWalls: function() {
+        // Create 4 defensive walls spaced across the bottom section
+        const wallWidth = 80;
+        const wallHeight = 60;
+        const wallY = this.settings.height - 150;
+        const spacing = this.settings.width / 5;
+        
+        for (let i = 0; i < 4; i++) {
+            const wall = {
+                x: spacing * (i + 1) - (wallWidth / 2),
+                y: wallY,
+                width: wallWidth,
+                height: wallHeight,
+                segments: [],
+                color: '#8a8a8a'
+            };
+            
+            // Create wall segments for destructible walls
+            const segmentSize = 10;
+            for (let row = 0; row < wallHeight / segmentSize; row++) {
+                for (let col = 0; col < wallWidth / segmentSize; col++) {
+                    // Shape the wall with a slight arch
+                    if (row === 0 && (col < 2 || col > wallWidth / segmentSize - 3)) {
+                        continue; // Skip corners for arch shape
+                    }
+                    
+                    const segment = {
+                        x: wall.x + col * segmentSize,
+                        y: wall.y + row * segmentSize,
+                        width: segmentSize,
+                        height: segmentSize,
+                        health: 3
+                    };
+                    wall.segments.push(segment);
+                }
+            }
+            
+            this.state.walls.push(wall);
+        }
+        
+        console.log('Created defensive walls:', this.state.walls.length);
+    },
+    
+    setupCanvas: function() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Set canvas size based on container
+        const container = document.getElementById('gameContainer');
+        this.canvas.width = container.clientWidth;
+        this.canvas.height = container.clientHeight;
+        
+        // Store dimensions for calculations
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
+        
+        console.log('Canvas setup complete:', this.width, 'x', this.height);
+    },
+    
+    setupInputHandlers: function() {
+        // Set up keyboard input
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+            
+            // Special ability with Shift key
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+                this.activateSpecialAbility();
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
+        });
+        
+        console.log('Input handlers initialized');
+    },
+    
+    initializeGameState: function() {
+        // Reset core game state
+        this.state.score = 0;
+        this.state.level = 1;
+        this.state.lives = this.settings.startingLives;
+        this.state.gameOver = false;
+        this.state.paused = false;
+        this.state.specialAbilityCooldown = 0;
+        
+        // Clear game objects
+        this.state.player = null;
+        this.state.enemies = [];
+        this.state.bullets = [];
+        this.state.walls = [];
+        this.state.explosions = [];
+        
+        console.log('Game state initialized');
+    },
+    
+    startGameLoop: function() {
+        // Store timestamp for frame rate calculations
+        this.lastTime = performance.now();
+        
+        // Initialize UI
+        this.updateUI();
+        
+        // Check if API key is available for score submission
+        const apiKey = localStorage.getItem('apiKey');
+        if (!apiKey) {
+            console.warn('No API key found - score submission will be disabled');
+        }
+        
+        // Start the animation loop
+        requestAnimationFrame(this.gameLoop.bind(this));
+        console.log('Game loop started');
     }
 }; 
