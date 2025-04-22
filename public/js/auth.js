@@ -67,6 +67,11 @@ const Auth = {
         // Create a mock user with default character
         const defaultChar = characterData.find(char => char._id === defaultCharacters[0]);
         
+        if (!defaultChar) {
+            console.error("Default character not found! Using first character instead.");
+            defaultChar = characterData[0];
+        }
+        
         this.currentUser = {
             email: email,
             username: username,

@@ -2,27 +2,16 @@
 function checkCharacterImages() {
     console.log("Checking character image paths...");
     
-    // List of expected image files
-    const expectedImages = [
-        "tralalero.png",
-        "bombardiro.png",
-        "tungtung.png",
-        "lirili.png",
-        "boneca.png",
-        "brrbrr.png",
-        "chimpanzini.png",
-        "bombombini.png",
-        "cappuccino.png",
-        "trippi.png",
-        "frigo.png",
-        "lavaca.png",
-        "default.png"
-    ];
-    
-    console.log("Expected image files:", expectedImages);
-    
-    // For each character, log whether the image loads successfully
+    // For each character, directly use proper image paths
     characterData.forEach(character => {
+        // Make sure the image path is correct
+        if (!character.image.startsWith('http') && !character.image.startsWith('data:')) {
+            // Make path absolute from root
+            if (!character.image.startsWith('/')) {
+                character.image = '/' + character.image;
+            }
+        }
+        
         const img = new Image();
         const imgPath = character.image;
         
@@ -38,10 +27,16 @@ function checkCharacterImages() {
             if (character.fallbackImage) {
                 console.log(`Trying fallback image: ${character.fallbackImage}`);
                 
+                // Make fallback path absolute
+                let fallbackPath = character.fallbackImage;
+                if (!fallbackPath.startsWith('http') && !fallbackPath.startsWith('data:') && !fallbackPath.startsWith('/')) {
+                    fallbackPath = '/' + fallbackPath;
+                }
+                
                 const fallbackImg = new Image();
                 fallbackImg.onload = () => {
                     console.log(`✅ Fallback image loaded for ${character.name}`);
-                    character.image = character.fallbackImage;
+                    character.image = fallbackPath;
                 };
                 
                 fallbackImg.onerror = () => {
@@ -49,7 +44,8 @@ function checkCharacterImages() {
                     createDynamicImage(character);
                 };
                 
-                fallbackImg.src = character.fallbackImage;
+                fallbackImg.src = fallbackPath;
+                character.fallbackImage = fallbackPath;
             } else {
                 createDynamicImage(character);
             }

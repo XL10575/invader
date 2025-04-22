@@ -263,13 +263,31 @@ const Game = {
     // Create player
     createPlayer: function() {
         // Get selected character or use default if none selected
-        const character = Auth.currentUser.selectedCharacter || {
-            stats: {
-                speed: 5,
-                fireRate: 5,
-                health: 3,
-                damage: 1
+        let character = Auth.currentUser.selectedCharacter;
+        
+        // If no character is selected, use the default
+        if (!character) {
+            const defaultChar = characterData.find(char => char._id === defaultCharacters[0]);
+            if (defaultChar) {
+                character = defaultChar;
+                // Update Auth.currentUser
+                if (Auth.currentUser) {
+                    Auth.currentUser.selectedCharacter = character;
+                }
+                console.log("Using default character:", character.name);
+            } else {
+                // Fallback to first character if default not found
+                character = characterData[0];
+                console.log("Using first character as fallback:", character.name);
             }
+        }
+        
+        // Ensure character has stats
+        const stats = character.stats || {
+            speed: 5,
+            fireRate: 5,
+            health: 3,
+            damage: 1
         };
         
         this.player = {
@@ -277,11 +295,11 @@ const Game = {
             y: this.height - 60,
             width: 50,
             height: 30,
-            speed: 5 + character.stats.speed / 2,
-            fireRate: 300 - character.stats.fireRate * 20, // ms between shots
+            speed: 5 + stats.speed / 2,
+            fireRate: 300 - stats.fireRate * 20, // ms between shots
             lastFired: 0,
-            damage: character.stats.damage,
-            health: character.stats.health,
+            damage: stats.damage,
+            health: stats.health,
             moveLeft: false,
             moveRight: false,
             character: character,
@@ -301,6 +319,7 @@ const Game = {
         
         // Set the player image
         if (character.image) {
+            console.log("Setting player image:", character.image);
             this.player.image.src = character.image;
         }
         
@@ -705,16 +724,8 @@ const Game = {
     
     // Draw player
     drawPlayer: function() {
-        if (this.player.image.complete && this.player.character && this.player.character.image) {
-            // Draw character image if available
-            this.ctx.drawImage(
-                this.player.image,
-                this.player.x,
-                this.player.y - 20, // Adjust position to make it look better
-                this.player.width,
-                this.player.height + 20 // Make the image slightly taller
-            );
-        } else {
+        // Create a placeholder for the player if the image isn't loaded or available
+        if (!this.player.image || !this.player.image.complete || !this.player.character || this.player.image.naturalWidth === 0) {
             // Fallback to default triangle ship
             this.ctx.fillStyle = '#00ff00';
             this.ctx.beginPath();
@@ -723,11 +734,29 @@ const Game = {
             this.ctx.lineTo(this.player.x, this.player.y + this.player.height);
             this.ctx.closePath();
             this.ctx.fill();
+            
+            // Try loading the image again if it failed
+            if (this.player.character && this.player.character.image && (!this.player.image || this.player.image.naturalWidth === 0)) {
+                console.log("Retrying image load for:", this.player.character.name);
+                this.player.image = new Image();
+                this.player.image.src = this.player.character.image;
+            }
+        } else {
+            // Draw character image if available and loaded
+            this.ctx.drawImage(
+                this.player.image,
+                this.player.x, 
+                this.player.y - 10, // Adjust position to make it look better
+                this.player.width,
+                this.player.height + 10 // Make the image slightly taller
+            );
         }
         
         // Draw special ability indicator if available
-        if (this.player.character && this.player.character.specialAbility) {
-            // To be implemented in future
+        if (this.player.character && this.player.character.specialAbility && this.player.specialAbility.active) {
+            // Show active special ability indicator
+            this.ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+            this.ctx.fillRect(this.player.x - 5, this.player.y - 5, this.player.width + 10, this.player.height + 10);
         }
     },
     
